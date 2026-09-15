@@ -13,6 +13,7 @@
 
 #include "Ava_Eyes.h"
 #include "Ava_Config.h"
+#include "Ava_TicTacToe.h"
 #include "AVA_GAMES.h"
 
 namespace AvaBluetooth {
@@ -844,6 +845,155 @@ inline void processGameAnswer(
 
 
 // ==================================================
+// TIC TAC TOE BLE HELPERS
+//
+// ESP32 is the sole game brain and score authority.
+// Android only sends ALI moves and renders the state.
+// ==================================================
+
+inline String ticTacToeWinnerText()
+{
+    char winner = AvaTicTacToe::getWinner();
+
+    if (winner == AvaTicTacToe::ALI)
+        return "ALI";
+
+    if (winner == AvaTicTacToe::AVA)
+        return "AVA";
+
+    return "DRAW";
+}
+
+inline void sendTicTacToeState()
+{
+    String message =
+        "TTT_STATE|" +
+        AvaTicTacToe::getBoardString() +
+        "|" +
+        String(AvaTicTacToe::getTurn());
+
+    sendData(message);
+}
+
+inline void sendTicTacToeScore()
+{
+    String message =
+        "TTT_SCORE|" +
+        String(AvaTicTacToe::getAliScore()) +
+        "|" +
+        String(AvaTicTacToe::getAvaScore());
+
+    sendData(message);
+}
+
+inline void sendTicTacToeFinished()
+{
+    String winner = ticTacToeWinnerText();
+
+    sendData("TTT_RESULT|" + winner);
+    sendTicTacToeScore();
+    sendData("TTT_FINISHED|" + winner);
+}
+
+inline void startTicTacToe()
+{
+    AvaTicTacToe::resetGame();
+
+    sendEvent("GAME_STARTED");
+    sendTicTacToeScore();
+    sendTicTacToeState();
+
+    Serial.println("[TTT BLE] TIC TAC TOE STARTED.");
+    Serial.println("[TTT BLE] ALI = X | AVA = O");
+}
+
+inline void processTicTacToeMove(const String& data)
+{
+    const String prefix = "TTT_MOVE|";
+
+    if (!data.startsWith(prefix))
+        return;
+
+    String payload = data.substring(prefix.length());
+    int separator = payload.indexOf('|');
+
+    if (separator < 0)
+    {
+        sendData("TTT_MOVE_REJECTED|INVALID_FORMAT");
+        return;
+    }
+
+    String player = payload.substring(0, separator);
+    String cellText = payload.substring(separator + 1);
+
+    player.trim();
+    cellText.trim();
+    player.toUpperCase();
+
+    if (player != "ALI")
+    {
+        sendData("TTT_MOVE_REJECTED|ALI_ONLY");
+        return;
+    }
+
+    int cell = cellText.toInt();
+
+    if (cell < 0 || cell > 8)
+    {
+        sendData("TTT_MOVE_REJECTED|INVALID_CELL");
+        return;
+    }
+
+    if (!AvaTicTacToe::isRunning())
+    {
+        sendData("TTT_MOVE_REJECTED|GAME_NOT_RUNNING");
+        return;
+    }
+
+    if (AvaTicTacToe::getTurn() != AvaTicTacToe::ALI)
+    {
+        sendData("TTT_MOVE_REJECTED|NOT_YOUR_TURN");
+        return;
+    }
+
+    if (!AvaTicTacToe::aliMove(cell))
+    {
+        sendData("TTT_MOVE_REJECTED|INVALID_MOVE");
+        return;
+    }
+
+    sendData("TTT_MOVE_ACCEPTED|ALI|" + String(cell));
+    sendTicTacToeState();
+
+    Serial.print("[TTT BLE] ALI -> ");
+    Serial.println(cell);
+
+    if (AvaTicTacToe::isFinished())
+    {
+        sendTicTacToeFinished();
+        return;
+    }
+
+    int avaCell = AvaTicTacToe::makeAvaMove();
+
+    if (avaCell < 0)
+    {
+        sendData("TTT_MOVE_REJECTED|AVA_MOVE_FAILED");
+        return;
+    }
+
+    sendData("TTT_MOVE|AVA|" + String(avaCell));
+    sendTicTacToeState();
+
+    Serial.print("[TTT BLE] AVA -> ");
+    Serial.println(avaCell);
+
+    if (AvaTicTacToe::isFinished())
+        sendTicTacToeFinished();
+}
+
+
+// ==================================================
 // Process incoming DATA
 //
 // IMPORTANT:
@@ -875,6 +1025,27 @@ inline void processData(
     if (value.startsWith("GAME_ANSWER|"))
     {
         processGameAnswer(value);
+        return;
+    }
+
+    // --------------------------------------------------
+    // TIC TAC TOE MOVE
+    // --------------------------------------------------
+
+    if (value.startsWith("TTT_MOVE|"))
+    {
+        processTicTacToeMove(value);
+        return;
+    }
+
+    if (value == "TTT_REMATCH")
+    {
+        if (AvaTicTacToe::rematch())
+        {
+            sendEvent("GAME_STARTED");
+            sendTicTacToeScore();
+            sendTicTacToeState();
+        }
         return;
     }
 
@@ -1109,6 +1280,12 @@ inline void executeCommand(
     // GAME LOAD
     // ==================================================
 
+    if (cmd == "GAME_LOAD|TIC_TAC_TOE")
+    {
+        sendEvent("GAME_LOADED|TIC_TAC_TOE");
+        return;
+    }
+
     if (cmd.startsWith("GAME_LOAD|"))
     {
         String gameId =
@@ -1141,6 +1318,12 @@ inline void executeCommand(
 
     if (cmd == "GAME_START")
     {
+        if (AvaTicTacToe::isRunning())
+        {
+            startTicTacToe();
+            return;
+        }
+
         if (AvaGames::startGame())
         {
             sendEvent(
@@ -1180,6 +1363,13 @@ inline void executeCommand(
 
     if (cmd == "GAME_END")
     {
+        if (AvaTicTacToe::isRunning() || AvaTicTacToe::isFinished())
+        {
+            AvaTicTacToe::resetGame();
+            sendEvent("GAME_ENDED");
+            return;
+        }
+
         AvaGames::endGame();
 
         sendEvent(
