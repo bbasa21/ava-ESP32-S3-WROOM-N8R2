@@ -1,0 +1,247 @@
+name: Integrate Tic Tac Toe BLE
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/integrate-ttt.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch Ava_Bluetooth.h
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('include/Ava_Bluetooth.h')
+          text = path.read_text(encoding='utf-8')
+
+          include_anchor = '#include "Ava_Config.h"\n'
+          include_line = '#include "Ava_TicTacToe.h"\n'
+          if include_line not in text:
+              if include_anchor not in text:
+                  raise SystemExit('Could not find BLE include anchor')
+              text = text.replace(include_anchor, include_anchor + include_line, 1)
+
+          helper_anchor = '// ==================================================\n// Process incoming DATA\n'
+          helpers = r'''// ==================================================
+// TIC TAC TOE BLE HELPERS
+//
+// ESP32 is the sole game brain and score authority.
+// Android only sends ALI moves and renders the state.
+// ==================================================
+
+inline String ticTacToeWinnerText()
+{
+    char winner = AvaTicTacToe::getWinner();
+
+    if (winner == AvaTicTacToe::ALI)
+        return "ALI";
+
+    if (winner == AvaTicTacToe::AVA)
+        return "AVA";
+
+    return "DRAW";
+}
+
+inline void sendTicTacToeState()
+{
+    String message =
+        "TTT_STATE|" +
+        AvaTicTacToe::getBoardString() +
+        "|" +
+        String(AvaTicTacToe::getTurn());
+
+    sendData(message);
+}
+
+inline void sendTicTacToeScore()
+{
+    String message =
+        "TTT_SCORE|" +
+        String(AvaTicTacToe::getAliScore()) +
+        "|" +
+        String(AvaTicTacToe::getAvaScore());
+
+    sendData(message);
+}
+
+inline void sendTicTacToeFinished()
+{
+    String winner = ticTacToeWinnerText();
+
+    sendData("TTT_RESULT|" + winner);
+    sendTicTacToeScore();
+    sendData("TTT_FINISHED|" + winner);
+}
+
+inline void startTicTacToe()
+{
+    AvaTicTacToe::resetGame();
+
+    sendEvent("GAME_STARTED");
+    sendTicTacToeScore();
+    sendTicTacToeState();
+
+    Serial.println("[TTT BLE] TIC TAC TOE STARTED.");
+    Serial.println("[TTT BLE] ALI = X | AVA = O");
+}
+
+inline void processTicTacToeMove(const String& data)
+{
+    const String prefix = "TTT_MOVE|";
+
+    if (!data.startsWith(prefix))
+        return;
+
+    String payload = data.substring(prefix.length());
+    int separator = payload.indexOf('|');
+
+    if (separator < 0)
+    {
+        sendData("TTT_MOVE_REJECTED|INVALID_FORMAT");
+        return;
+    }
+
+    String player = payload.substring(0, separator);
+    String cellText = payload.substring(separator + 1);
+
+    player.trim();
+    cellText.trim();
+    player.toUpperCase();
+
+    if (player != "ALI")
+    {
+        sendData("TTT_MOVE_REJECTED|ALI_ONLY");
+        return;
+    }
+
+    int cell = cellText.toInt();
+
+    if (cell < 0 || cell > 8)
+    {
+        sendData("TTT_MOVE_REJECTED|INVALID_CELL");
+        return;
+    }
+
+    if (!AvaTicTacToe::isRunning())
+    {
+        sendData("TTT_MOVE_REJECTED|GAME_NOT_RUNNING");
+        return;
+    }
+
+    if (AvaTicTacToe::getTurn() != AvaTicTacToe::ALI)
+    {
+        sendData("TTT_MOVE_REJECTED|NOT_YOUR_TURN");
+        return;
+    }
+
+    if (!AvaTicTacToe::aliMove(cell))
+    {
+        sendData("TTT_MOVE_REJECTED|INVALID_MOVE");
+        return;
+    }
+
+    sendData("TTT_MOVE_ACCEPTED|ALI|" + String(cell));
+    sendTicTacToeState();
+
+    Serial.print("[TTT BLE] ALI -> ");
+    Serial.println(cell);
+
+    // --------------------------------------------------
+    // ALI finished the round.
+    // --------------------------------------------------
+
+    if (AvaTicTacToe::isFinished())
+    {
+        sendTicTacToeFinished();
+        return;
+    }
+
+    // --------------------------------------------------
+    // AVA thinks and moves inside the ESP32 game engine.
+    // --------------------------------------------------
+
+    int avaCell = AvaTicTacToe::makeAvaMove();
+
+    if (avaCell < 0)
+    {
+        sendData("TTT_MOVE_REJECTED|AVA_MOVE_FAILED");
+        return;
+    }
+
+    sendData("TTT_MOVE|AVA|" + String(avaCell));
+    sendTicTacToeState();
+
+    Serial.print("[TTT BLE] AVA -> ");
+    Serial.println(avaCell);
+
+    if (AvaTicTacToe::isFinished())
+        sendTicTacToeFinished();
+}
+
+
+'''
+
+          if 'inline void processTicTacToeMove' not in text:
+              if helper_anchor not in text:
+                  raise SystemExit('Could not find processData anchor')
+              text = text.replace(helper_anchor, helpers + helper_anchor, 1)
+
+          data_anchor = '    if (value.startsWith("GAME_ANSWER|"))\n    {\n        processGameAnswer(value);\n        return;\n    }\n'
+          data_insert = data_anchor + '''\n    // --------------------------------------------------\n    // TIC TAC TOE MOVE\n    // --------------------------------------------------\n\n    if (value.startsWith("TTT_MOVE|"))\n    {\n        processTicTacToeMove(value);\n        return;\n    }\n\n    if (value == "TTT_REMATCH")\n    {\n        if (AvaTicTacToe::rematch())\n        {\n            sendEvent("GAME_STARTED");\n            sendTicTacToeScore();\n            sendTicTacToeState();\n        }\n        return;\n    }\n'''
+          if 'processTicTacToeMove(value);' not in text:
+              if data_anchor not in text:
+                  raise SystemExit('Could not find GAME_ANSWER data anchor')
+              text = text.replace(data_anchor, data_insert, 1)
+
+          load_anchor = '    if (cmd.startsWith("GAME_LOAD|"))\n    {\n        String gameId =\n'
+          load_insert = '''    if (cmd == "GAME_LOAD|TIC_TAC_TOE")\n    {\n        sendEvent("GAME_LOADED|TIC_TAC_TOE");\n        return;\n    }\n\n''' + load_anchor
+          if 'cmd == "GAME_LOAD|TIC_TAC_TOE"' not in text:
+              if load_anchor not in text:
+                  raise SystemExit('Could not find GAME_LOAD anchor')
+              text = text.replace(load_anchor, load_insert, 1)
+
+          start_anchor = '    if (cmd == "GAME_START")\n    {\n        if (AvaGames::startGame())\n'
+          start_insert = '''    if (cmd == "GAME_START")\n    {\n        if (AvaTicTacToe::getBoardString() == "---------" &&\n            AvaTicTacToe::isRunning())\n        {\n            startTicTacToe();\n            return;\n        }\n\n        if (AvaGames::startGame())\n'''
+          if 'startTicTacToe();' not in text:
+              if start_anchor not in text:
+                  raise SystemExit('Could not find GAME_START anchor')
+              text = text.replace(start_anchor, start_insert, 1)
+
+          end_anchor = '    if (cmd == "GAME_END")\n    {\n        AvaGames::endGame();\n'
+          end_insert = '''    if (cmd == "GAME_END")\n    {\n        if (AvaTicTacToe::isRunning() || AvaTicTacToe::isFinished())\n        {\n            AvaTicTacToe::resetGame();\n            sendEvent("GAME_ENDED");\n            return;\n        }\n\n        AvaGames::endGame();\n'''
+          if 'AvaTicTacToe::resetGame();\n            sendEvent("GAME_ENDED")' not in text:
+              if end_anchor not in text:
+                  raise SystemExit('Could not find GAME_END anchor')
+              text = text.replace(end_anchor, end_insert, 1)
+
+          reset_anchor = '    if (cmd == "GAME_RESET")\n    {\n        AvaGames::reset();\n'
+          reset_insert = '''    if (cmd == "GAME_RESET")\n    {\n        if (AvaTicTacToe::isRunning() || AvaTicTacToe::isFinished())\n        {\n            AvaTicTacToe::resetGame();\n            sendEvent("GAME_RESET");\n            sendTicTacToeScore();\n            sendTicTacToeState();\n            return;\n        }\n\n        AvaGames::reset();\n'''
+          if 'sendTicTacToeScore();\n            sendTicTacToeState();\n            return;' not in text:
+              if reset_anchor not in text:
+                  raise SystemExit('Could not find GAME_RESET anchor')
+              text = text.replace(reset_anchor, reset_insert, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add include/Ava_Bluetooth.h
+          if git diff --cached --quiet; then
+            echo 'No patch needed.'
+          else
+            git commit -m 'Integrate Tic-Tac-Toe into AVA BLE game flow'
+            git push
+          fi
