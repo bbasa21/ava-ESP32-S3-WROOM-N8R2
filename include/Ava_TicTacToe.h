@@ -19,10 +19,12 @@
 //
 // Wire messages used by the BLE layer:
 //   TTT_STATE|<board>|<turn>
+//   TTT_MOVE|ALI|<cell>
 //   TTT_MOVE|AVA|<cell>
 //   TTT_MOVE_ACCEPTED|ALI|<cell>
 //   TTT_MOVE_REJECTED|<reason>
 //   TTT_RESULT|ALI / AVA / DRAW
+//   TTT_SCORE|<ali>|<ava>
 //   TTT_FINISHED|ALI / AVA / DRAW
 // ============================================================
 
@@ -152,21 +154,17 @@ inline int findWinningMove(char player)
 
 inline int chooseAvaMove()
 {
-    // 1. Win immediately if possible.
     int move = findWinningMove(AVA);
     if (move >= 0)
         return move;
 
-    // 2. Block ALI's immediate win.
     move = findWinningMove(ALI);
     if (move >= 0)
         return move;
 
-    // 3. Take center.
     if (board()[4] == EMPTY)
         return 4;
 
-    // 4. Prefer a corner.
     const int corners[4] = {0, 2, 6, 8};
     int freeCorners[4];
     int count = 0;
@@ -180,7 +178,6 @@ inline int chooseAvaMove()
     if (count > 0)
         return freeCorners[random(0, count)];
 
-    // 5. Any remaining cell.
     int freeCells[9];
     count = 0;
 
