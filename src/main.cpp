@@ -35,6 +35,7 @@
 #include "Ava_Communication.h"
 #include "Ava_WiFi.h"
 #include "Ava_Bluetooth.h"
+#include "Ava_DisplaySettings.h"
 
 #include <esp_mac.h>
 
@@ -134,6 +135,7 @@ void setup() {
   // ==================================================
 
   avaOLEDBegin();
+  avaDisplaySettingsBegin();
 
   bootAva();
 
