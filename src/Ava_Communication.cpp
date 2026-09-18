@@ -356,7 +356,12 @@ void avaCommunicationUpdate()
     if (data == "SETTINGS_ENTER")
     {
         avaDisplaySettingsEnter();
-        avaCommunicationSend("SETTINGS_READY");
+        avaCommunicationSend(
+            "SETTINGS_READY|" +
+            String(avaDisplaySettingsBrightness()) + "|" +
+            String(avaDisplaySettingsContrast()) + "|" +
+            avaDisplaySettingsMode()
+        );
         return;
     }
 
