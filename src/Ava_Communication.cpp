@@ -4,6 +4,7 @@
 
 #include "Ava_Bluetooth.h"
 #include "Ava_OLED.h"
+#include "Ava_DisplaySettings.h"
 #include "Ava_WiFi.h"
 
 // ============================================================
@@ -348,6 +349,81 @@ void avaCommunicationUpdate()
 
 
     // ========================================================
+    // ========================================================
+    // DISPLAY SETTINGS
+    // ========================================================
+
+    if (data == "SETTINGS_ENTER")
+    {
+        avaDisplaySettingsEnter();
+        avaCommunicationSend("SETTINGS_READY");
+        return;
+    }
+
+    if (data == "SETTINGS_EXIT")
+    {
+        avaDisplaySettingsExit();
+        return;
+    }
+
+    if (data == "DISPLAY_APPLY")
+    {
+        if (!avaDisplaySettingsActive())
+        {
+            avaCommunicationSend("DISPLAY_APPLY_REJECTED|NO_SESSION");
+            return;
+        }
+        avaDisplaySettingsApply();
+        avaCommunicationSend("DISPLAY_APPLIED|" + String(avaDisplaySettingsBrightness()) + "|" + String(avaDisplaySettingsContrast()) + "|" + avaDisplaySettingsMode());
+        return;
+    }
+
+    if (data.startsWith("DISPLAY_SET|"))
+    {
+        if (!avaDisplaySettingsActive())
+        {
+            avaCommunicationSend("DISPLAY_SET_REJECTED|NO_SESSION");
+            return;
+        }
+        int first = data.indexOf('|');
+        int second = data.indexOf('|', first + 1);
+        if (first < 0 || second < 0)
+        {
+            avaCommunicationSend("DISPLAY_SET_REJECTED|FORMAT");
+            return;
+        }
+        String key = data.substring(first + 1, second);
+        String value = data.substring(second + 1);
+        key.trim();
+        value.trim();
+        key.toUpperCase();
+
+        if (key == "BRIGHTNESS")
+        {
+            int number = value.toInt();
+            if (number < 0 || number > 255) { avaCommunicationSend("DISPLAY_SET_REJECTED|BRIGHTNESS"); return; }
+            avaDisplaySettingsSetBrightness((uint8_t)number);
+        }
+        else if (key == "CONTRAST")
+        {
+            int number = value.toInt();
+            if (number < 0 || number > 255) { avaCommunicationSend("DISPLAY_SET_REJECTED|CONTRAST"); return; }
+            avaDisplaySettingsSetContrast((uint8_t)number);
+        }
+        else if (key == "MODE")
+        {
+            avaDisplaySettingsSetMode(value);
+        }
+        else
+        {
+            avaCommunicationSend("DISPLAY_SET_REJECTED|UNKNOWN");
+            return;
+        }
+
+        avaCommunicationSend("DISPLAY_PREVIEW|" + String(avaDisplaySettingsBrightness()) + "|" + String(avaDisplaySettingsContrast()) + "|" + avaDisplaySettingsMode());
+        return;
+    }
+
     // WEATHER COMMAND
     //
     // مثال:
