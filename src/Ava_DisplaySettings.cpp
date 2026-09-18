@@ -29,8 +29,7 @@ static void applyHardware()
 
     // SSD1309/U8g2 exposes hardware intensity through setContrast().
     // Brightness + contrast are combined so both controls have an effect.
-    extern U8G2_SSD1309_128X64_NONAME0_F_4W_SW_SPI avaDisplay;
-    avaDisplay.setContrast(effectiveContrast());
+    avaOLEDApplyContrast(effectiveContrast());
 
     if (pendingMode == "ECO")
     {
