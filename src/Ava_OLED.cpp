@@ -181,6 +181,22 @@ void avaOLEDBegin()
 }
 
 // ==================================================
+// APPLY CONTRAST
+// ==================================================
+
+void avaOLEDApplyContrast(
+    uint8_t contrast
+)
+{
+    if (!avaOLEDReady)
+    {
+        return;
+    }
+
+    avaDisplay.setContrast(contrast);
+}
+
+// ==================================================
 // SET TIME
 // ==================================================
 
