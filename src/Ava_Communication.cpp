@@ -4,6 +4,7 @@
 
 #include "Ava_Bluetooth.h"
 #include "Ava_OLED.h"
+#include "Ava_Eyes.h"
 #include "Ava_DisplaySettings.h"
 #include "Ava_WiFi.h"
 
@@ -349,6 +350,24 @@ void avaCommunicationUpdate()
 
 
     // ========================================================
+    // ========================================================
+    // TIC TAC TOE LOSS REACTION
+    // ========================================================
+
+    if (data == "TTT_GLEE")
+    {
+        avaApplyEmotion(AVA_EMOTION_GLEE);
+        Serial.println("[COMM] TTT loss reaction: GLEE.");
+        return;
+    }
+
+    if (data == "TTT_GLEE_END")
+    {
+        avaApplyEmotion(AVA_EMOTION_NORMAL);
+        Serial.println("[COMM] TTT loss reaction ended.");
+        return;
+    }
+
     // ========================================================
     // DISPLAY SETTINGS
     // ========================================================
