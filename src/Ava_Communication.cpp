@@ -356,7 +356,7 @@ void avaCommunicationUpdate()
 
     if (data == "SAD")
     {
-        avaApplyEmotion(AVA_EMOTION_SAD);
+        avaApplyEmotion(AVA_EMOTION_SAD_REFERENCE);
         Serial.println("[COMM] SAD command: sad emotion.");
         return;
     }
