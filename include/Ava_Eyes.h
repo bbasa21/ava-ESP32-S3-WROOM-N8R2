@@ -262,6 +262,11 @@ static constexpr int16_t AVA_RIGHT_EYE_CENTER_Y = 32;
 
 void avaApplyCurrentGaze();
 
+// Debug-eyes behavior and game gaze lock.
+void avaEnableDebugEyes();
+void avaEnterGameGazeLock();
+void avaExitGameGazeLock();
+
 
 // ==================================================
 // RENDER CURRENT EYE FRAME
