@@ -368,6 +368,13 @@ void avaCommunicationUpdate()
         return;
     }
 
+    if (data == "CALM")
+    {
+        avaApplyEmotion(AVA_EMOTION_NORMAL);
+        Serial.println("[COMM] CALM command: normal emotion.");
+        return;
+    }
+
     // ========================================================
     // DISPLAY SETTINGS
     // ========================================================
