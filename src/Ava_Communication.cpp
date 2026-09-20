@@ -354,6 +354,13 @@ void avaCommunicationUpdate()
     // TIC TAC TOE LOSS REACTION
     // ========================================================
 
+    if (data == "SAD")
+    {
+        avaApplyEmotion(AVA_EMOTION_SAD);
+        Serial.println("[COMM] SAD command: sad emotion.");
+        return;
+    }
+
     if (data == "TTT_GLEE")
     {
         avaApplyEmotion(AVA_EMOTION_GLEE);
