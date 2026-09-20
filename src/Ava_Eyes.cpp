@@ -38,6 +38,55 @@ BlinkAssistant& avaBlinkAssistant = avaFace.Blink;
 
 
 // ==================================================
+// DEBUG EYES / GAME GAZE LOCK
+// ==================================================
+
+static bool avaGameGazeLockActive = false;
+static bool avaGameSavedRandomLook = true;
+
+void avaEnableDebugEyes()
+{
+    avaFace.RandomBehavior = true;
+    avaFace.RandomLook = true;
+    avaFace.RandomBlink = true;
+
+    avaEnableNaturalGaze();
+
+    Serial.println("[EYES] DEBUG EYES ENABLED.");
+}
+
+void avaEnterGameGazeLock()
+{
+    if (!avaGameGazeLockActive)
+    {
+        avaGameSavedRandomLook = avaFace.RandomLook;
+        avaGameGazeLockActive = true;
+    }
+
+    avaFace.RandomLook = false;
+
+    setGaze(GAZE_DOWN);
+
+    Serial.println("[EYES] GAME GAZE LOCK -> GAZE_DOWN.");
+}
+
+void avaExitGameGazeLock()
+{
+    if (!avaGameGazeLockActive)
+    {
+        return;
+    }
+
+    avaFace.RandomLook = avaGameSavedRandomLook;
+    avaGameGazeLockActive = false;
+
+    avaEnableNaturalGaze();
+
+    Serial.println("[EYES] GAME GAZE LOCK RELEASED.");
+}
+
+
+// ==================================================
 // APPLY CURRENT GAZE
 // --------------------------------------------------
 // The old gaze system used SetCenter() offsets.
@@ -222,6 +271,12 @@ static bool avaMyGamesSecondBlinkDone = false;
 
 void avaMyGamesEnter()
 {
+    // MY GAMES uses the same debug-eyes behavior as the
+    // standalone "debug eyes" command.
+    avaEnableDebugEyes();
+
+    avaEnterGameGazeLock();
+
     avaMyGamesIntroActive = true;
     avaMyGamesIntroStart = millis();
     avaMyGamesSecondBlinkDone = false;
@@ -233,7 +288,6 @@ void avaMyGamesEnter()
     avaFace.RandomLook = false;
 
     avaApplyEmotion(AVA_EMOTION_HAPPY);
-    setGaze(GAZE_CENTER);
 
     avaFace.DoBlink();
 
@@ -262,7 +316,9 @@ void avaMyGamesIntroUpdate()
         setGaze(GAZE_DOWN);
 
         avaFace.RandomBehavior = avaMyGamesSavedRandomBehavior;
-        avaFace.RandomLook = avaMyGamesSavedRandomLook;
+        // MY GAMES must keep its gaze locked down. RandomLook is
+        // intentionally left disabled until MY_GAMES_EXIT.
+        avaFace.RandomLook = false;
 
         avaMyGamesIntroActive = false;
 
