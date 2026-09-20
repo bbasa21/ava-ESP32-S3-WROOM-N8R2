@@ -978,4 +978,9 @@ inline void avaApplyEmotion(AvaEyeEmotion emotion)
 }
 
 
+
+// MY GAMES entry animation: HAPPY -> blink -> NORMAL + GAZE_DOWN.
+void avaMyGamesEnter();
+void avaMyGamesIntroUpdate();
+
 #endif
