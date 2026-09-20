@@ -203,7 +203,75 @@ void avaEyesBlinkTick()
 // PUBLIC BLINK / FACE ENGINE UPDATE
 // ==================================================
 
+// ==================================================
+// MY GAMES ENTRY ANIMATION
+// --------------------------------------------------
+// HAPPY -> forced blink -> forced blink ->
+// NORMAL + GAZE_DOWN
+// --------------------------------------------------
+// The Face behavior/look randomizers are temporarily
+// paused so the HAPPY expression remains intact while
+// the blink engine animates over the existing eyes.
+// ==================================================
+
+static bool avaMyGamesIntroActive = false;
+static uint32_t avaMyGamesIntroStart = 0;
+static bool avaMyGamesSavedRandomBehavior = true;
+static bool avaMyGamesSavedRandomLook = true;
+static bool avaMyGamesSecondBlinkDone = false;
+
+void avaMyGamesEnter()
+{
+    avaMyGamesIntroActive = true;
+    avaMyGamesIntroStart = millis();
+    avaMyGamesSecondBlinkDone = false;
+
+    avaMyGamesSavedRandomBehavior = avaFace.RandomBehavior;
+    avaMyGamesSavedRandomLook = avaFace.RandomLook;
+
+    avaFace.RandomBehavior = false;
+    avaFace.RandomLook = false;
+
+    avaApplyEmotion(AVA_EMOTION_HAPPY);
+    setGaze(GAZE_CENTER);
+
+    avaFace.DoBlink();
+
+    Serial.println("[MY GAMES] HAPPY + BLINK INTRO STARTED.");
+}
+
+void avaMyGamesIntroUpdate()
+{
+    if (!avaMyGamesIntroActive)
+    {
+        return;
+    }
+
+    const uint32_t elapsed =
+        static_cast<uint32_t>(millis() - avaMyGamesIntroStart);
+
+    if (!avaMyGamesSecondBlinkDone && elapsed >= 800UL)
+    {
+        avaFace.DoBlink();
+        avaMyGamesSecondBlinkDone = true;
+    }
+
+    if (elapsed >= 1700UL)
+    {
+        avaApplyEmotion(AVA_EMOTION_NORMAL);
+        setGaze(GAZE_DOWN);
+
+        avaFace.RandomBehavior = avaMyGamesSavedRandomBehavior;
+        avaFace.RandomLook = avaMyGamesSavedRandomLook;
+
+        avaMyGamesIntroActive = false;
+
+        Serial.println("[MY GAMES] INTRO FINISHED -> NORMAL + GAZE_DOWN.");
+    }
+}
+
 void avaBlinkAssistantUpdate()
 {
+    avaMyGamesIntroUpdate();
     avaEyesBlinkTick();
 }
