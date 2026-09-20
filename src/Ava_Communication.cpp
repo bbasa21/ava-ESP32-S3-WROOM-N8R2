@@ -368,10 +368,10 @@ void avaCommunicationUpdate()
         return;
     }
 
-    if (data == "CALM")
+    if (data == "DEBUG OLED")
     {
         avaApplyEmotion(AVA_EMOTION_NORMAL);
-        Serial.println("[COMM] CALM command: normal emotion.");
+        Serial.println("[COMM] DEBUG OLED command: normal emotion.");
         return;
     }
 
