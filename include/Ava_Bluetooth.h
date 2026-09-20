@@ -1239,6 +1239,15 @@ inline void executeCommand(
 
 
     cmd.trim();
+
+    // "debug eyes" is intentionally lowercase and case-sensitive.
+    if (cmd == "debug eyes")
+    {
+        avaEnableDebugEyes();
+        sendEvent("DEBUG_EYES");
+        return;
+    }
+
     cmd.toUpperCase();
 
 
@@ -1496,12 +1505,26 @@ inline void executeCommand(
 
 
     // ==================================================
+    // MY GAMES EXIT
+    // ==================================================
+
+    if (cmd == "MY_GAMES_EXIT")
+    {
+        avaExitGameGazeLock();
+        avaApplyEmotion(AVA_EMOTION_NORMAL);
+        sendEvent("MY_GAMES_EXIT");
+        return;
+    }
+
+
+    // ==================================================
     // GAME LOAD - TIC TAC TOE
     // ==================================================
 
     if (cmd ==
         "GAME_LOAD|TIC_TAC_TOE")
     {
+        avaEnterGameGazeLock();
         startTicTacToe();
 
         return;
@@ -1517,6 +1540,8 @@ inline void executeCommand(
         Serial.println(
             "[TTT BLE] COMMAND REMATCH requested."
         );
+
+        avaEnterGameGazeLock();
 
 
         // --------------------------------------------------
@@ -1579,6 +1604,8 @@ inline void executeCommand(
         "GAME_LOAD|"
     ))
     {
+        avaEnterGameGazeLock();
+
         String gameId =
             cmd.substring(
                 String("GAME_LOAD|").length()
@@ -1614,6 +1641,8 @@ inline void executeCommand(
 
     if (cmd == "GAME_START")
     {
+        avaEnterGameGazeLock();
+
         if (AvaTicTacToe::isRunning())
         {
             startTicTacToe();
@@ -1653,6 +1682,7 @@ inline void executeCommand(
             AvaTicTacToe::isFinished())
         {
             AvaTicTacToe::resetGame();
+            avaExitGameGazeLock();
 
 
             sendEvent(
@@ -1665,6 +1695,7 @@ inline void executeCommand(
 
 
         AvaGames::endGame();
+        avaExitGameGazeLock();
 
 
         sendEvent(
