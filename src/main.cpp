@@ -30,12 +30,12 @@
 #include "Ava_Decision.h"
 #include "Ava_OLED.h"
 #include "EyeBlink.h"
+#include "Ava_DisplaySettings.h"
 
 #include "BlinkAssistant.h"
 #include "Ava_Communication.h"
 #include "Ava_WiFi.h"
 #include "Ava_Bluetooth.h"
-#include "Ava_DisplaySettings.h"
 
 #include <esp_mac.h>
 
@@ -136,7 +136,6 @@ void setup() {
 
   avaOLEDBegin();
   avaDisplaySettingsBegin();
-
   bootAva();
 
   avaMemoryOnBoot(millis());
