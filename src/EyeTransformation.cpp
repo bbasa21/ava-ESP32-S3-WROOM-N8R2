@@ -57,9 +57,9 @@ void EyeTransformation::Apply() {
     Output.OffsetX =
         Input->OffsetX + Current.MoveX;
 
-    // Repository uses inverted Y for screen coordinates.
+    // Positive MoveY is down, negative MoveY is up.
     Output.OffsetY =
-        Input->OffsetY - Current.MoveY;
+        Input->OffsetY + Current.MoveY;
 
     // Scale transformation.
     Output.Width =
