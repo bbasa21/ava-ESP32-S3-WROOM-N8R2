@@ -46,6 +46,18 @@ static bool avaGameSavedRandomLook = true;
 
 void avaEnableDebugEyes()
 {
+    // Give the Face behavior engine real emotion weights. Without this,
+    // the stock engine has only Normal weighted and debug eyes appear frozen.
+    avaFace.Behavior.Clear();
+
+    for (int i = 0; i < eEmotions::EMOTIONS_COUNT; ++i)
+    {
+        avaFace.Behavior.SetEmotion(
+            static_cast<eEmotions>(i),
+            1.0f
+        );
+    }
+
     avaFace.RandomBehavior = true;
     avaFace.RandomLook = true;
     avaFace.RandomBlink = true;
