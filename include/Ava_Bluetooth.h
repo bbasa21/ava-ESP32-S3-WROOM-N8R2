@@ -1614,6 +1614,22 @@ inline void executeCommand(
 
         gameId.trim();
 
+        // Clear a stale Tic-Tac-Toe session before loading another game.
+        // Otherwise GAME_START can see TTT still running and restart TTT
+        // instead of starting MATH_BATTLE / LOGIC_BATTLE.
+        if (gameId != "TIC_TAC_TOE")
+        {
+            if (AvaTicTacToe::isRunning() ||
+                AvaTicTacToe::isFinished())
+            {
+                AvaTicTacToe::resetGame();
+
+                Serial.println(
+                    "[GAME] Previous TIC TAC TOE session cleared."
+                );
+            }
+        }
+
 
         if (AvaGames::loadGame(gameId))
         {
