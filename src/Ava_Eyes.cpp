@@ -233,6 +233,19 @@ void avaEyesBlinkTick()
 
 
     // ==================================================
+    // ==================================================
+    // OTA UI OWNS THE OLED
+    // --------------------------------------------------
+    // While OTA is rendering its progress screen, the
+    // eye renderer must not overwrite that frame.
+    // ==================================================
+
+    if (avaOTAUIIsActive())
+    {
+        return;
+    }
+
+
     // UPDATE FULL REFERENCE FACE ENGINE
     // ==================================================
     //
