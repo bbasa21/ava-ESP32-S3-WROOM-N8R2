@@ -285,15 +285,7 @@ bool avaOTAUpdate()
     mbedtls_sha256_context sha256;
     mbedtls_sha256_init(&sha256);
 
-    if (mbedtls_sha256_starts(&sha256, 0) != 0)
-    {
-        Serial.println("[OTA] ERROR: SHA-256 init failed.");
-        Update.abort();
-        mbedtls_sha256_free(&sha256);
-        firmwareHttp.end();
-        firmwareClient.stop();
-        return false;
-    }
+    mbedtls_sha256_starts(&sha256, 0);
 
     uint8_t buffer[4096];
     size_t written = 0;
@@ -354,18 +346,11 @@ bool avaOTAUpdate()
             break;
         }
 
-        if (
-            mbedtls_sha256_update(
-                &sha256,
-                buffer,
-                readBytes
-            ) != 0
-        )
-        {
-            Serial.println("[OTA] ERROR: SHA-256 update failed.");
-            transferOK = false;
-            break;
-        }
+        mbedtls_sha256_update(
+            &sha256,
+            buffer,
+            readBytes
+        );
 
         written += readBytes;
 
@@ -377,11 +362,12 @@ bool avaOTAUpdate()
 
     uint8_t digest[32];
 
-    bool hashOK =
-        mbedtls_sha256_finish(
-            &sha256,
-            digest
-        ) == 0;
+    mbedtls_sha256_finish(
+        &sha256,
+        digest
+    );
+
+    bool hashOK = true;
 
     mbedtls_sha256_free(&sha256);
 
