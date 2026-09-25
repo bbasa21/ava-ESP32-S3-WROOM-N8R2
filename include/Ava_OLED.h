@@ -88,48 +88,19 @@ int16_t y = 50;
 struct AvaOLEDLayout {
 
 
-// ------------------------------------------------
-// Screen
-// ------------------------------------------------
-
 int16_t screenWidth  = 128;
 int16_t screenHeight = 64;
-
-
-// ------------------------------------------------
-// Left eye
-// ------------------------------------------------
 
 int16_t leftX = 18;
 int16_t leftY = 18;
 
-
-// ------------------------------------------------
-// Right eye
-// ------------------------------------------------
-
 int16_t rightX = 74;
 int16_t rightY = 18;
-
-
-// ------------------------------------------------
-// Base eye dimensions
-// ------------------------------------------------
 
 int16_t eyeWidth  = 36;
 int16_t eyeHeight = 28;
 
-
-// ------------------------------------------------
-// Base corner radius
-// ------------------------------------------------
-
 int16_t cornerRadius = 8;
-
-
-// ------------------------------------------------
-// Status UI area
-// ------------------------------------------------
 
 int16_t statusY = 52;
 
@@ -143,60 +114,21 @@ int16_t statusY = 52;
 struct AvaOLEDState {
 
 
-// ------------------------------------------------
-// Hardware
-// ------------------------------------------------
-
 bool initialized = false;
 bool available   = false;
 
-
-// ------------------------------------------------
-// Display mode
-// ------------------------------------------------
-
 AvaOLEDMode mode = AVA_OLED_NORMAL;
-
-
-// ------------------------------------------------
-// Eye style
-// ------------------------------------------------
 
 AvaOledEyeStyle eyeStyle =
     AVA_OLED_EYES_DEFAULT;
 
-
-// ------------------------------------------------
-// Gaze
-// ------------------------------------------------
-
 AvaOLEDGaze gaze;
-
-
-// ------------------------------------------------
-// Layout
-// ------------------------------------------------
 
 AvaOLEDLayout layout;
 
-
-// ------------------------------------------------
-// Battery
-// ------------------------------------------------
-
 uint8_t batteryPercent = 100;
 
-
-// ------------------------------------------------
-// Brightness
-// ------------------------------------------------
-
 uint8_t brightness = 255;
-
-
-// ------------------------------------------------
-// Last update timestamp
-// ------------------------------------------------
 
 uint32_t lastUpdateMs = 0;
 
@@ -211,10 +143,7 @@ inline AvaOLEDState& avaOLED()
 {
 static AvaOLEDState state;
 
-
 return state;
-
-
 }
 
 // ==================================================
@@ -278,6 +207,10 @@ return avaOLED().eyeStyle;
 
 // ==================================================
 // GAZE
+//
+// Range:
+//   X = 0..100
+//   Y = 0..100
 // ==================================================
 
 inline void avaOLEDSetGaze(
@@ -286,7 +219,6 @@ int y
 )
 {
 AvaOLEDState& o = avaOLED();
-
 
 o.gaze.x = constrain(
     x,
@@ -299,8 +231,6 @@ o.gaze.y = constrain(
     0,
     100
 );
-
-
 }
 
 inline AvaOLEDGaze avaOLEDGetGaze()
@@ -356,6 +286,14 @@ return avaOLED().layout;
 }
 
 // ==================================================
+// HARDWARE CONTRAST
+// ==================================================
+
+void avaOLEDApplyContrast(
+uint8_t contrast
+);
+
+// ==================================================
 // TIME
 //
 // فرمت پیشنهادی:
@@ -380,17 +318,6 @@ void avaOLEDRenderTime();
 
 // ==================================================
 // WEATHER
-// ==================================================
-//
-// Weather از Ava_WiFi می‌آید.
-//
-// هنگام Weather Mode:
-//
-//   - چشم‌ها کاملاً حذف می‌شوند
-//   - فقط Weather UI نمایش داده می‌شود
-//   - مدت نمایش: 10 ثانیه
-//   - سپس کنترل به Eye Engine برمی‌گردد
-//
 // ==================================================
 
 void avaOLEDShowWeather();
@@ -430,24 +357,21 @@ switch (mode)
 case AVA_OLED_NORMAL:
 return "NORMAL";
 
+case AVA_OLED_BATTERY:
+    return "BATTERY";
 
-    case AVA_OLED_BATTERY:
-        return "BATTERY";
+case AVA_OLED_TIME:
+    return "TIME";
 
-    case AVA_OLED_TIME:
-        return "TIME";
+case AVA_OLED_WEATHER:
+    return "WEATHER";
 
-    case AVA_OLED_WEATHER:
-        return "WEATHER";
+case AVA_OLED_DEBUG:
+    return "DEBUG";
 
-    case AVA_OLED_DEBUG:
-        return "DEBUG";
-
-    default:
-        return "UNKNOWN";
+default:
+    return "UNKNOWN";
 }
-
-
 }
 
 inline const char* avaOLEDStyleName(
@@ -459,30 +383,27 @@ switch (style)
 case AVA_OLED_EYES_DEFAULT:
 return "DEFAULT";
 
+case AVA_OLED_EYES_HAPPY:
+    return "HAPPY";
 
-    case AVA_OLED_EYES_HAPPY:
-        return "HAPPY";
+case AVA_OLED_EYES_SAD:
+    return "SAD";
 
-    case AVA_OLED_EYES_SAD:
-        return "SAD";
+case AVA_OLED_EYES_SLEEPY:
+    return "SLEEPY";
 
-    case AVA_OLED_EYES_SLEEPY:
-        return "SLEEPY";
+case AVA_OLED_EYES_THINKING:
+    return "THINKING";
 
-    case AVA_OLED_EYES_THINKING:
-        return "THINKING";
+case AVA_OLED_EYES_LISTENING:
+    return "LISTENING";
 
-    case AVA_OLED_EYES_LISTENING:
-        return "LISTENING";
+case AVA_OLED_EYES_SURPRISED:
+    return "SURPRISED";
 
-    case AVA_OLED_EYES_SURPRISED:
-        return "SURPRISED";
-
-    default:
-        return "UNKNOWN";
+default:
+    return "UNKNOWN";
 }
-
-
 }
 
 // ==================================================
