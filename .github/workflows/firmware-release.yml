@@ -75,7 +75,7 @@ EOF
         uses: softprops/action-gh-release@v2
         with:
           tag_name: firmware-${GITHUB_RUN_NUMBER}
-          name: AVA Firmware Build #${GITHUB_RUN_NUMBER}
+          name: "AVA Firmware Build #${GITHUB_RUN_NUMBER}"
           generate_release_notes: true
           files: |
             release/ava-firmware.bin
