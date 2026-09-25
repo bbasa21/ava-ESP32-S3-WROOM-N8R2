@@ -1,0 +1,83 @@
+name: AVA Firmware Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "include/**"
+      - "lib/**"
+      - "platformio.ini"
+      - "partitions/**"
+      - "boards/**"
+      - "data/**"
+      - "default_8MB.csv"
+      - ".github/workflows/firmware-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        run: pio run -e ava
+
+      - name: Prepare release files
+        shell: bash
+        run: |
+          set -e
+
+          FIRMWARE=".pio/build/ava/firmware.bin"
+
+          if [ ! -f "$FIRMWARE" ]; then
+            echo "Firmware binary not found: $FIRMWARE"
+            exit 1
+          fi
+
+          mkdir -p release
+
+          cp "$FIRMWARE" release/ava-firmware.bin
+          sha256sum release/ava-firmware.bin | awk '{print $1}' > release/sha256.txt
+
+          cat > release/manifest.json <<EOF
+{
+  "version": "0.0.0",
+  "build": ${GITHUB_RUN_NUMBER},
+  "commit": "${GITHUB_SHA}",
+  "firmware": "ava-firmware.bin",
+  "sha256": "$(cat release/sha256.txt)"
+}
+EOF
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ava-firmware
+          path: release/
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: firmware-${GITHUB_RUN_NUMBER}
+          name: AVA Firmware Build #${GITHUB_RUN_NUMBER}
+          generate_release_notes: true
+          files: |
+            release/ava-firmware.bin
+            release/manifest.json
+            release/sha256.txt
