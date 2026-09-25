@@ -28,13 +28,15 @@ static void avaOTATask(void* parameter)
     (void)parameter;
 
     Serial.println("[OTA] Dedicated OTA task started.");
-    avaOTARunning = true;
 
-    avaOTAUpdate();
+    while (true)
+    {
+        avaOTARunning = true;
+        avaOTAUpdate();
+        avaOTARunning = false;
 
-    avaOTARunning = false;
-    avaOTATaskHandle = nullptr;
-    vTaskDelete(nullptr);
+        vTaskDelay(pdMS_TO_TICKS(300000));
+    }
 }
 
 bool avaOTAIsRunning()
@@ -227,13 +229,6 @@ bool avaOTAUpdate()
         Serial.println("[OTA] ERROR: Could not acquire network lock.");
         return false;
     }
-
-    if (avaOTAAlreadyChecked)
-    {
-        return false;
-    }
-
-    avaOTAAlreadyChecked = true;
 
     if (WiFi.status() != WL_CONNECTED)
     {
