@@ -48,6 +48,11 @@ void avaOTAUISetStatus(AvaOTAUIStatus status)
     avaOTAUIState = status;
 }
 
+bool avaOTAUIIsActive()
+{
+    return avaOTAUIActive;
+}
+
 void avaOTAUIEnd()
 {
     avaOTAUIActive = false;
