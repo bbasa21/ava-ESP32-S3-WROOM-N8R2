@@ -36,6 +36,7 @@
 #include "Ava_Communication.h"
 #include "Ava_WiFi.h"
 #include "Ava_OTA.h"
+#include "Ava_OTA_Display.h"
 #include "Ava_Bluetooth.h"
 
 #include <esp_mac.h>
@@ -181,6 +182,7 @@ void loop() {
   updateBehavior();
 
   avaOLEDUpdate();
+  avaOTAUIUpdate();
   avaBlinkAssistantUpdate();
 
   delay(20);
