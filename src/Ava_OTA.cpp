@@ -114,7 +114,7 @@ static bool avaOTAExtractString(
 
     start++;
 
-    int end = json.indexOf(""", start);
+    int end = json.indexOf("\"", start);
 
     if (end < 0)
     {
@@ -131,7 +131,7 @@ static bool avaOTAExtractInt(
     uint32_t& value
 )
 {
-    String searchKey = String(""") + key + "":";
+    String searchKey = String("\"") + key + "\":";
     int start = json.indexOf(searchKey);
 
     if (start < 0)
