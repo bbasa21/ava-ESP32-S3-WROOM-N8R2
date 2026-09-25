@@ -9,5 +9,6 @@
 
 bool avaOTAUpdate();
 void avaOTAStartTask();
+bool avaOTAIsRunning();
 
 #endif
