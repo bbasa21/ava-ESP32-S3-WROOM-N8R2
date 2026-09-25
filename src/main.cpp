@@ -158,11 +158,11 @@ void setup() {
 }
 
 void loop() {
-  handleSerialInput();
   // OTA owns the network while its dedicated task is running.
   // Keep Weather, Bluetooth-triggered network commands, and other
   // loopTask network users from competing with OTA/TLS.
   if (!avaOTAIsRunning()) {
+    handleSerialInput();
     AvaBluetooth::update();
     avaCommunicationUpdate();
     avaWiFiUpdate();
@@ -218,7 +218,6 @@ void bootAva() {
 
   renderEyes(EYES_CALM);
   setGaze(GAZE_CENTER);
-
   currentState = STATE_IDLE;
   setMood(MOOD_CALM);
 }
