@@ -8,8 +8,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include "Ava_NetworkLock.h"
-
 #include "Ava_BuildInfo.h"
 #include "Ava_OTA_Display.h"
 
@@ -29,17 +27,9 @@ static void avaOTATask(void* parameter)
 
     Serial.println("[OTA] Dedicated OTA task started.");
 
-    AvaNetworkLockGuard networkLock;
+    avaOTAUpdate();
 
-    if (!networkLock.isLocked())
-    {
-        Serial.println("[OTA] ERROR: Could not acquire network lock.");
-    }
-    else
-    {
-        avaOTAUpdate();
-    }
-
+    avaOTARunning = false;
     avaOTATaskHandle = nullptr;
     vTaskDelete(nullptr);
 }
@@ -57,6 +47,7 @@ void avaOTAStartTask()
     }
 
     avaOTATaskStarted = true;
+    avaOTARunning = true;
 
     BaseType_t result = xTaskCreatePinnedToCore(
         avaOTATask,
@@ -71,6 +62,7 @@ void avaOTAStartTask()
     if (result != pdPASS)
     {
         avaOTATaskStarted = false;
+        avaOTARunning = false;
         avaOTATaskHandle = nullptr;
 
         Serial.println("[OTA] ERROR: Failed to create OTA task.");
@@ -178,7 +170,6 @@ static bool avaOTAExtractInt(
     value = static_cast<uint32_t>(
         json.substring(start, end).toInt()
     );
-
     return true;
 }
 
@@ -378,8 +369,3 @@ bool avaOTAUpdate()
     Serial.print("[OTA] Firmware size: ");
     Serial.print(contentLength);
     Serial.println(" bytes");
-
-    if (!Update.begin(static_cast<size_t>(contentLength)))
-    {
-        Serial.print("[OTA] ERROR: Update.begin failed. Error: ");
-        Serial.println(Update.getError());
