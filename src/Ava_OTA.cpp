@@ -81,7 +81,7 @@ static bool avaOTAExtractString(
     String& value
 )
 {
-    String searchKey = String("\"") + key + "\":";
+    String searchKey = String(""") + key + "":";
     int start = json.indexOf(searchKey);
 
     if (start < 0)
@@ -106,7 +106,7 @@ static bool avaOTAExtractString(
 
     if (
         start >= json.length() ||
-        json[start] != '\"'
+        json[start] != '"'
     )
     {
         return false;
@@ -114,7 +114,7 @@ static bool avaOTAExtractString(
 
     start++;
 
-    int end = json.indexOf("\"", start);
+    int end = json.indexOf(""", start);
 
     if (end < 0)
     {
@@ -131,7 +131,7 @@ static bool avaOTAExtractInt(
     uint32_t& value
 )
 {
-    String searchKey = String("\"") + key + "\":";
+    String searchKey = String(""") + key + "":";
     int start = json.indexOf(searchKey);
 
     if (start < 0)
@@ -353,6 +353,7 @@ bool avaOTAUpdate()
 
     firmwareHttp.setConnectTimeout(5000);
     firmwareHttp.setTimeout(15000);
+    firmwareHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
     int firmwareCode = firmwareHttp.GET();
 
