@@ -5,6 +5,8 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include <mbedtls/sha256.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "Ava_BuildInfo.h"
 
@@ -14,6 +16,51 @@ static const char* AVA_OTA_MANIFEST_URL =
     "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/main/ota/manifest.json";
 
 static bool avaOTAAlreadyChecked = false;
+static bool avaOTATaskStarted = false;
+static TaskHandle_t avaOTATaskHandle = nullptr;
+
+static void avaOTATask(void* parameter)
+{
+    (void)parameter;
+
+    Serial.println("[OTA] Dedicated OTA task started.");
+
+    avaOTAUpdate();
+
+    avaOTATaskHandle = nullptr;
+    vTaskDelete(nullptr);
+}
+
+void avaOTAStartTask()
+{
+    if (avaOTATaskStarted)
+    {
+        return;
+    }
+
+    avaOTATaskStarted = true;
+
+    BaseType_t result = xTaskCreatePinnedToCore(
+        avaOTATask,
+        "AVA_OTA",
+        16384,
+        nullptr,
+        1,
+        &avaOTATaskHandle,
+        0
+    );
+
+    if (result != pdPASS)
+    {
+        avaOTATaskStarted = false;
+        avaOTATaskHandle = nullptr;
+
+        Serial.println("[OTA] ERROR: Failed to create OTA task.");
+        return;
+    }
+
+    Serial.println("[OTA] OTA task scheduled on Core 0.");
+}
 
 static bool avaOTAExtractString(
     const String& json,
