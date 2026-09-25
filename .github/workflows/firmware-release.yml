@@ -1,19 +1,6 @@
 name: AVA Firmware Release
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "src/**"
-      - "include/**"
-      - "lib/**"
-      - "platformio.ini"
-      - "partitions/**"
-      - "boards/**"
-      - "data/**"
-      - "default_8MB.csv"
-      - ".github/workflows/firmware-release.yml"
   workflow_dispatch:
 
 permissions:
