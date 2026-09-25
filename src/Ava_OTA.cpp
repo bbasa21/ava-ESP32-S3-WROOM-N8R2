@@ -236,6 +236,8 @@ bool avaOTAUpdate()
 
     HTTPClient http;
 
+    Serial.println("[OTA] Manifest HTTP begin...");
+
     if (!http.begin(client, AVA_OTA_MANIFEST_URL))
     {
         Serial.println("[OTA] ERROR: Manifest HTTP begin failed.");
@@ -246,7 +248,11 @@ bool avaOTAUpdate()
     http.setConnectTimeout(5000);
     http.setTimeout(10000);
 
+    Serial.println("[OTA] Manifest HTTP GET...");
     int httpCode = http.GET();
+
+    Serial.print("[OTA] Manifest HTTP code: ");
+    Serial.println(httpCode);
 
     if (httpCode != HTTP_CODE_OK)
     {
@@ -257,7 +263,11 @@ bool avaOTAUpdate()
         return false;
     }
 
+    Serial.println("[OTA] Reading manifest...");
     String manifest = http.getString();
+    Serial.print("[OTA] Manifest received: ");
+    Serial.print(manifest.length());
+    Serial.println(" bytes");
 
     http.end();
     client.stop();
