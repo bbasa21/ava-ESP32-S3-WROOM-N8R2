@@ -35,6 +35,7 @@
 #include "BlinkAssistant.h"
 #include "Ava_Communication.h"
 #include "Ava_WiFi.h"
+#include "Ava_OTA.h"
 #include "Ava_Bluetooth.h"
 
 #include <esp_mac.h>
@@ -160,6 +161,10 @@ void loop() {
   AvaBluetooth::update();
   avaCommunicationUpdate();
   avaWiFiUpdate();
+
+  // OTA checks once after the first successful Internet connection.
+  // The updater itself prevents repeated checks during the same boot.
+  avaOTAUpdate();
 
   // Update raw touch state first so all higher-level logic sees
   // the current physical touch state.
