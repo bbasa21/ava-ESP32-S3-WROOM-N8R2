@@ -8,6 +8,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "Ava_NetworkLock.h"
+
 #include "Ava_BuildInfo.h"
 #include "Ava_OTA_Display.h"
 
@@ -26,7 +28,16 @@ static void avaOTATask(void* parameter)
 
     Serial.println("[OTA] Dedicated OTA task started.");
 
-    avaOTAUpdate();
+    AvaNetworkLockGuard networkLock;
+
+    if (!networkLock.isLocked())
+    {
+        Serial.println("[OTA] ERROR: Could not acquire network lock.");
+    }
+    else
+    {
+        avaOTAUpdate();
+    }
 
     avaOTATaskHandle = nullptr;
     vTaskDelete(nullptr);
