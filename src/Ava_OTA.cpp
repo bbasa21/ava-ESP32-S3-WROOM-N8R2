@@ -9,6 +9,7 @@
 #include <freertos/task.h>
 
 #include "Ava_BuildInfo.h"
+#include "Ava_OTA_Display.h"
 
 // Stable manifest location. The release workflow updates this file
 // after publishing each firmware release.
@@ -275,6 +276,7 @@ bool avaOTAUpdate()
     }
 
     Serial.println("[OTA] New firmware found.");
+    avaOTAUIBegin();
     Serial.print("[OTA] Firmware URL: ");
     Serial.println(firmwareUrl);
     Serial.print("[OTA] Expected SHA-256: ");
@@ -288,6 +290,9 @@ bool avaOTAUpdate()
     if (!firmwareHttp.begin(firmwareClient, firmwareUrl))
     {
         Serial.println("[OTA] ERROR: Firmware HTTP begin failed.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         firmwareClient.stop();
         return false;
     }
@@ -311,6 +316,9 @@ bool avaOTAUpdate()
     if (contentLength <= 0)
     {
         Serial.println("[OTA] ERROR: Invalid firmware size.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         firmwareHttp.end();
         firmwareClient.stop();
         return false;
@@ -324,6 +332,9 @@ bool avaOTAUpdate()
     {
         Serial.print("[OTA] ERROR: Update.begin failed. Error: ");
         Serial.println(Update.getError());
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         firmwareHttp.end();
         firmwareClient.stop();
         return false;
@@ -414,6 +425,9 @@ bool avaOTAUpdate()
         digest
     );
 
+    avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
+    avaOTAUISetProgress(100);
+
     bool hashOK = true;
 
     mbedtls_sha256_free(&sha256);
@@ -428,6 +442,9 @@ bool avaOTAUpdate()
     )
     {
         Serial.println("[OTA] ERROR: Firmware transfer failed.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         Update.abort();
         return false;
     }
@@ -455,22 +472,36 @@ bool avaOTAUpdate()
     if (actualSha256 != expectedSha256)
     {
         Serial.println("[OTA] ERROR: SHA-256 mismatch.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         Update.abort();
         return false;
     }
+
+    avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
 
     if (!Update.end(true))
     {
         Serial.print("[OTA] ERROR: Update.end failed. Error: ");
         Serial.println(Update.getError());
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         return false;
     }
 
     if (!Update.isFinished())
     {
         Serial.println("[OTA] ERROR: Update is not finished.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         return false;
     }
+
+    avaOTAUISetStatus(AVA_OTA_UI_RESTARTING);
+    avaOTAUISetProgress(100);
 
     Serial.println("[OTA] Firmware verified and installed.");
     Serial.println("[OTA] Rebooting into the new build...");
