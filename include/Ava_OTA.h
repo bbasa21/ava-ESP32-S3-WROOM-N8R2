@@ -8,5 +8,6 @@
 // ==================================================
 
 bool avaOTAUpdate();
+void avaOTAStartTask();
 
 #endif
