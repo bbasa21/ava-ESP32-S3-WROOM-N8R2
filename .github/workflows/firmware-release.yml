@@ -100,20 +100,14 @@ jobs:
 
       - name: Publish latest OTA manifest
         uses: actions/github-script@v7
-        env:
-          MANIFEST: |
-            {
-              "build": ${GITHUB_RUN_NUMBER},
-              "version": "0.0.0",
-              "commit": "${GITHUB_SHA}",
-              "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-${GITHUB_RUN_NUMBER}/ava-firmware.bin",
-              "sha256": "$(cat release/sha256.txt)"
-            }
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require("fs");
             const path = "ota/manifest.json";
-            const content = Buffer.from(process.env.MANIFEST).toString("base64");
+            const content = Buffer.from(
+              fs.readFileSync("release/manifest.json", "utf8")
+            ).toString("base64");
             let sha;
 
             try {
