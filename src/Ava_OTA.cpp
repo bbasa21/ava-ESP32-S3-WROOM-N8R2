@@ -69,7 +69,7 @@ static bool avaOTAExtractString(
     String& value
 )
 {
-    String searchKey = String("\"") + key + "\":\"";
+    String searchKey = String("\"") + key + "\":";
     int start = json.indexOf(searchKey);
 
     if (start < 0)
@@ -78,6 +78,29 @@ static bool avaOTAExtractString(
     }
 
     start += searchKey.length();
+
+    while (
+        start < json.length() &&
+        (
+            json[start] == ' ' ||
+            json[start] == '\t' ||
+            json[start] == '\r' ||
+            json[start] == '\n'
+        )
+    )
+    {
+        start++;
+    }
+
+    if (
+        start >= json.length() ||
+        json[start] != '\"'
+    )
+    {
+        return false;
+    }
+
+    start++;
 
     int end = json.indexOf("\"", start);
 
