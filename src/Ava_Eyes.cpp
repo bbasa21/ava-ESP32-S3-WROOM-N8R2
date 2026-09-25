@@ -1,6 +1,7 @@
 #include "Ava_Eyes.h"
 #include "BlinkAssistant.h"
 #include "Ava_OLED.h"
+#include "Ava_OTA_Display.h"
 #include "Face.h"
 
 // ==================================================
