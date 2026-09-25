@@ -1,7 +1,6 @@
 #include "Ava_Eyes.h"
 #include "BlinkAssistant.h"
 #include "Ava_OLED.h"
-#include "Ava_OTA_Display.h"
 #include "Face.h"
 
 // ==================================================
@@ -203,12 +202,6 @@ void avaApplyCurrentGaze()
 
 void avaEyesBlinkTick()
 {
-    // OTA is the exclusive OLED owner while its UI is active.
-    if (avaOTAUIIsActive())
-    {
-        return;
-    }
-
     // ==================================================
     // OLED TIME MODE
     // ==================================================
@@ -264,4 +257,88 @@ void avaEyesBlinkTick()
     // ==================================================
 
     avaRenderEyeFrame();
+}
+
+
+// ==================================================
+// PUBLIC BLINK / FACE ENGINE UPDATE
+// ==================================================
+
+// ==================================================
+// MY GAMES ENTRY ANIMATION
+// --------------------------------------------------
+// HAPPY -> forced blink -> forced blink ->
+// NORMAL + GAZE_DOWN
+// --------------------------------------------------
+// The Face behavior/look randomizers are temporarily
+// paused so the HAPPY expression remains intact while
+// the blink engine animates over the existing eyes.
+// ==================================================
+
+static bool avaMyGamesIntroActive = false;
+static uint32_t avaMyGamesIntroStart = 0;
+static bool avaMyGamesSavedRandomBehavior = true;
+static bool avaMyGamesSavedRandomLook = true;
+static bool avaMyGamesSecondBlinkDone = false;
+
+void avaMyGamesEnter()
+{
+    // MY GAMES entry is a one-shot HAPPY reaction + blink.
+    // After the intro, the gaze remains locked to GAZE_DOWN
+    // until MY_GAMES_EXIT or GAME_END releases the lock.
+    avaMyGamesSavedRandomBehavior = avaFace.RandomBehavior;
+    avaMyGamesSavedRandomLook = avaFace.RandomLook;
+
+    avaEnterGameGazeLock();
+
+    avaMyGamesIntroActive = true;
+    avaMyGamesIntroStart = millis();
+    avaMyGamesSecondBlinkDone = false;
+
+    avaFace.RandomBehavior = false;
+    avaFace.RandomLook = false;
+
+    avaApplyEmotion(AVA_EMOTION_HAPPY);
+
+    avaFace.DoBlink();
+
+    Serial.println("[MY GAMES] HAPPY + BLINK INTRO STARTED.");
+}
+
+void avaMyGamesIntroUpdate()
+{
+    if (!avaMyGamesIntroActive)
+    {
+        return;
+    }
+
+    const uint32_t elapsed =
+        static_cast<uint32_t>(millis() - avaMyGamesIntroStart);
+
+    if (!avaMyGamesSecondBlinkDone && elapsed >= 800UL)
+    {
+        avaFace.DoBlink();
+        avaMyGamesSecondBlinkDone = true;
+    }
+
+    if (elapsed >= 1700UL)
+    {
+        avaApplyEmotion(AVA_EMOTION_NORMAL);
+        setGaze(GAZE_DOWN);
+
+        avaFace.RandomBehavior = avaMyGamesSavedRandomBehavior;
+        // MY GAMES must keep its gaze locked down. RandomLook is
+        // intentionally left disabled until MY_GAMES_EXIT.
+        avaFace.RandomLook = false;
+
+        avaMyGamesIntroActive = false;
+
+        Serial.println("[MY GAMES] INTRO FINISHED -> NORMAL + GAZE_DOWN.");
+    }
+}
+
+void avaBlinkAssistantUpdate()
+{
+    avaMyGamesIntroUpdate();
+    avaEyesBlinkTick();
 }
