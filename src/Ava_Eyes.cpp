@@ -283,18 +283,17 @@ static bool avaMyGamesSecondBlinkDone = false;
 
 void avaMyGamesEnter()
 {
-    // MY GAMES uses the same debug-eyes behavior as the
-    // standalone "debug eyes" command.
-    avaEnableDebugEyes();
+    // MY GAMES entry is a one-shot HAPPY reaction + blink.
+    // After the intro, the gaze remains locked to GAZE_DOWN
+    // until MY_GAMES_EXIT or GAME_END releases the lock.
+    avaMyGamesSavedRandomBehavior = avaFace.RandomBehavior;
+    avaMyGamesSavedRandomLook = avaFace.RandomLook;
 
     avaEnterGameGazeLock();
 
     avaMyGamesIntroActive = true;
     avaMyGamesIntroStart = millis();
     avaMyGamesSecondBlinkDone = false;
-
-    avaMyGamesSavedRandomBehavior = avaFace.RandomBehavior;
-    avaMyGamesSavedRandomLook = avaFace.RandomLook;
 
     avaFace.RandomBehavior = false;
     avaFace.RandomLook = false;
