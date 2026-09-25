@@ -162,9 +162,11 @@ void loop() {
   avaCommunicationUpdate();
   avaWiFiUpdate();
 
-  // OTA checks once after the first successful Internet connection.
-  // The updater itself prevents repeated checks during the same boot.
-  avaOTAUpdate();
+  // OTA checks only after Wi-Fi is connected.
+  // The updater prevents repeated checks during the same boot.
+  if (avaWiFiConnected()) {
+    avaOTAUpdate();
+  }
 
   // Update raw touch state first so all higher-level logic sees
   // the current physical touch state.
