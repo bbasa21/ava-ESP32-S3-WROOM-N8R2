@@ -163,6 +163,8 @@ static void avaOTAReportProgress(
         percent = 100;
     }
 
+    avaOTAUISetProgress(percent);
+
     if (percent != lastPercent)
     {
         lastPercent = percent;
