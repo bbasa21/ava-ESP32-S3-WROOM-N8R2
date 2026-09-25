@@ -162,10 +162,10 @@ void loop() {
   avaCommunicationUpdate();
   avaWiFiUpdate();
 
-  // OTA checks only after Wi-Fi is connected.
-  // The updater prevents repeated checks during the same boot.
+  // OTA runs in a dedicated FreeRTOS task so HTTPS/TLS does not
+  // consume the Arduino loopTask stack.
   if (avaWiFiConnected()) {
-    avaOTAUpdate();
+    avaOTAStartTask();
   }
 
   // Update raw touch state first so all higher-level logic sees
