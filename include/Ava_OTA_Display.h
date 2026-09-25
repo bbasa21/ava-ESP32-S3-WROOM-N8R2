@@ -21,6 +21,7 @@ void avaOTAUIBegin();
 void avaOTAUISetProgress(int percent);
 void avaOTAUISetStatus(AvaOTAUIStatus status);
 void avaOTAUIEnd();
+bool avaOTAUIIsActive();
 void avaOTAUIUpdate();
 
 #endif
