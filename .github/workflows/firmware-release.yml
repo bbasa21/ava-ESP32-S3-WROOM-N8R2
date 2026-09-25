@@ -43,14 +43,14 @@ jobs:
           sha256sum release/ava-firmware.bin | awk '{print $1}' > release/sha256.txt
 
           cat > release/manifest.json <<EOF
-{
-  "version": "0.0.0",
-  "build": ${GITHUB_RUN_NUMBER},
-  "commit": "${GITHUB_SHA}",
-  "firmware": "ava-firmware.bin",
-  "sha256": "$(cat release/sha256.txt)"
-}
-EOF
+          {
+            "version": "0.0.0",
+            "build": ${GITHUB_RUN_NUMBER},
+            "commit": "${GITHUB_SHA}",
+            "firmware": "ava-firmware.bin",
+            "sha256": "$(cat release/sha256.txt)"
+          }
+          EOF
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
