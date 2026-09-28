@@ -296,6 +296,9 @@ inline void avaRenderEyeFrame()
   avaLeftEye.Draw();
   avaRightEye.Draw();
 
+  // Greeting text shares the same frame as the eyes.
+  avaOLEDRenderGreetingOverlay();
+
   AvaDisplayAdapter::endFrame();
 }
 
