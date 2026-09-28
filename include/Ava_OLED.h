@@ -333,6 +333,14 @@ bool avaOLEDWeatherActive();
 void avaOLEDUpdate();
 
 // ==================================================
+// GREETING ANIMATION
+// ==================================================
+
+void avaOLEDStartGreeting(const String& text);
+bool avaOLEDGreetingActive();
+void avaOLEDRenderGreetingOverlay();
+
+// ==================================================
 // CLEAR
 // ==================================================
 
