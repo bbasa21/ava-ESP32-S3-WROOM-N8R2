@@ -300,6 +300,18 @@ void processCommand(String cmd) {
   avaMemoryOnCommandReceived(cmd, millis());
   avaAchievementOnCommand(cmd, millis());
   // ================================
+  // Greeting Commands
+  // ================================
+  // say_hi and say_hello share the same logic.
+  // ================================
+  if (cmd == "say_hi" || cmd == "say_hello") {
+    avaApplyEmotion(AVA_EMOTION_HAPPY);
+    avaOLEDStartGreeting(cmd == "say_hi" ? "HI" : "HELLO");
+    currentState = STATE_IDLE;
+    return;
+  }
+
+  // ================================
   // Direct Eye Commands
   // ================================
   if (cmd == "time" ||
