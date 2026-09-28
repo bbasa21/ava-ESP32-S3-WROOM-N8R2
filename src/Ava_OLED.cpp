@@ -95,6 +95,16 @@ unsigned long avaTimeDisplayStartedMs = 0;
 unsigned long avaWeatherDisplayStartedMs = 0;
 
 // ==================================================
+// GREETING ANIMATION STATE
+// ==================================================
+
+String avaGreetingText = "";
+unsigned long avaGreetingStartedMs = 0;
+
+#define AVA_GREETING_DURATION_MS 3000UL
+#define AVA_GREETING_CHAR_DELAY_MS 180UL
+
+// ==================================================
 // OLED BEGIN
 // ==================================================
 
@@ -184,6 +194,59 @@ void avaOLEDBegin()
 // ==================================================
 // APPLY CONTRAST
 // ==================================================
+
+// ==================================================
+// GREETING ANIMATION
+// ==================================================
+
+void avaOLEDStartGreeting(const String& text)
+{
+    if (!avaOLEDReady)
+    {
+        return;
+    }
+
+    avaGreetingText = text;
+    avaGreetingStartedMs = millis();
+
+    Serial.print("[OLED] Greeting started: ");
+    Serial.println(avaGreetingText);
+}
+
+bool avaOLEDGreetingActive()
+{
+    if (avaGreetingText.length() == 0)
+    {
+        return false;
+    }
+
+    return (millis() - avaGreetingStartedMs) < AVA_GREETING_DURATION_MS;
+}
+
+void avaOLEDRenderGreetingOverlay()
+{
+    if (!avaOLEDGreetingActive())
+    {
+        avaGreetingText = "";
+        return;
+    }
+
+    const unsigned long elapsed = millis() - avaGreetingStartedMs;
+    const size_t visibleChars = min(
+        avaGreetingText.length(),
+        static_cast<size_t>(elapsed / AVA_GREETING_CHAR_DELAY_MS + 1)
+    );
+
+    String visible = avaGreetingText.substring(0, visibleChars);
+
+    avaDisplay.setFont(u8g2_font_6x10_tf);
+    avaDisplay.setDrawColor(1);
+
+    int16_t width = avaDisplay.getStrWidth(visible.c_str());
+    int16_t x = (AVA_OLED_WIDTH - width) / 2;
+
+    avaDisplay.drawStr(x, 60, visible.c_str());
+}
 
 void avaOLEDApplyContrast(
     uint8_t contrast
