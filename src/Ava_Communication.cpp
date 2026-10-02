@@ -350,6 +350,77 @@ void avaCommunicationUpdate()
 
 
     // ========================================================
+    // AVA NETWORK
+    // ========================================================
+
+    if (data == "WIFI_STATUS_REQUEST")
+    {
+        if (avaWiFiConnected())
+        {
+            avaCommunicationSend(
+                "WIFI_STATUS|CONNECTED|" +
+                avaWiFiSSID()
+            );
+        }
+        else
+        {
+            avaCommunicationSend(
+                "WIFI_STATUS|DISCONNECTED|"
+            );
+        }
+
+        return;
+    }
+
+    if (data.startsWith("WIFI_CONNECT|"))
+    {
+        int first = data.indexOf('|');
+
+        if (first < 0)
+        {
+            avaCommunicationSend("WIFI_CONNECT_REJECTED|FORMAT");
+            return;
+        }
+
+        String payload = data.substring(first + 1);
+        int separator = payload.indexOf('|');
+
+        if (separator < 0)
+        {
+            avaCommunicationSend("WIFI_CONNECT_REJECTED|FORMAT");
+            return;
+        }
+
+        String ssid = payload.substring(0, separator);
+        String password = payload.substring(separator + 1);
+
+        ssid.trim();
+        password.trim();
+
+        if (ssid.length() == 0)
+        {
+            avaCommunicationSend("WIFI_CONNECT_REJECTED|SSID");
+            return;
+        }
+
+        if (avaWiFiConnect(ssid, password))
+        {
+            avaCommunicationSend(
+                "WIFI_CONNECTING|" +
+                ssid
+            );
+        }
+        else
+        {
+            avaCommunicationSend(
+                "WIFI_CONNECT_REJECTED|START"
+            );
+        }
+
+        return;
+    }
+
+    // ========================================================
     // ========================================================
     // TIC TAC TOE LOSS REACTION
     // ========================================================
