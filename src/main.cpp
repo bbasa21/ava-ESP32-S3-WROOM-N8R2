@@ -140,6 +140,23 @@ void setup() {
   avaDisplaySettingsBegin();
   bootAva();
 
+  // ==================================================
+  // SCHOOL BOOT GREETING
+  // Greeting must finish before OTA / Weather checks.
+  // ==================================================
+  avaApplyEmotion(AVA_EMOTION_HAPPY);
+
+  if (random(0, 2) == 0)
+  {
+    avaOLEDStartGreeting("HI");
+    Serial.println("[BOOT] School greeting selected: HI");
+  }
+  else
+  {
+    avaOLEDStartGreeting("HELLO");
+    Serial.println("[BOOT] School greeting selected: HELLO");
+  }
+
   avaMemoryOnBoot(millis());
 
   avaTouchBegin();
@@ -158,18 +175,27 @@ void setup() {
 }
 
 void loop() {
+  // ==================================================
+  // SCHOOL BOOT SEQUENCE
+  //
+  // Greeting -> OTA check -> Weather check
+  //
+  // OTA is started before WiFi update once the greeting
+  // has finished, so the first Weather request cannot
+  // happen before the initial OTA check.
+  // ==================================================
+
+  if (!avaOLEDGreetingActive() && avaWiFiConnected())
+  {
+    avaOTAStartTask();
+  }
+
   // OTA owns the network while its dedicated task is running.
   if (!avaOTAIsRunning()) {
     handleSerialInput();
     AvaBluetooth::update();
     avaCommunicationUpdate();
     avaWiFiUpdate();
-  }
-
-  // OTA runs in a dedicated FreeRTOS task so HTTPS/TLS does not
-  // consume the Arduino loopTask stack.
-  if (avaWiFiConnected()) {
-    avaOTAStartTask();
   }
 
   // Update raw touch state first so all higher-level logic sees
