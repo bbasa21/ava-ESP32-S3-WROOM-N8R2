@@ -30,6 +30,10 @@ void avaWiFiUpdate();
 
 bool avaWiFiConnected();
 
+String avaWiFiSSID();
+
+bool avaWiFiConnect(const String& ssid, const String& password);
+
 String avaWiFiStatus();
 
 String avaWiFiMac();
