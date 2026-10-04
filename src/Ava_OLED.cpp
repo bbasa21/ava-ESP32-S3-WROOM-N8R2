@@ -101,6 +101,10 @@ unsigned long avaWeatherDisplayStartedMs = 0;
 String avaGreetingText = "";
 unsigned long avaGreetingStartedMs = 0;
 
+String avaOLEDMessageText = "";
+unsigned long avaOLEDMessageStartedMs = 0;
+#define AVA_OLED_MESSAGE_DURATION_MS 10000UL
+
 #define AVA_GREETING_DURATION_MS 3000UL
 #define AVA_GREETING_CHAR_DELAY_MS 180UL
 
@@ -612,6 +616,100 @@ void avaOLEDRenderWeather()
 }
 
 // ==================================================
+// MESSAGE / Q&A DISPLAY
+// ==================================================
+
+void avaOLEDShowMessage(const String& text)
+{
+    if (!avaOLEDReady)
+    {
+        return;
+    }
+
+    avaOLEDMessageText = text;
+    avaOLEDMessageText.trim();
+    avaOLEDMessageStartedMs = millis();
+
+    Serial.print("[OLED] Message started: ");
+    Serial.println(avaOLEDMessageText);
+}
+
+bool avaOLEDMessageActive()
+{
+    return avaOLEDMessageText.length() > 0 &&
+           (millis() - avaOLEDMessageStartedMs) < AVA_OLED_MESSAGE_DURATION_MS;
+}
+
+static void avaOLEDRenderMessage()
+{
+    if (!avaOLEDMessageActive())
+    {
+        avaOLEDMessageText = "";
+        return;
+    }
+
+    avaDisplay.clearBuffer();
+    avaDisplay.setFont(u8g2_font_6x10_tf);
+    avaDisplay.setDrawColor(1);
+
+    String remaining = avaOLEDMessageText;
+    int16_t y = 10;
+
+    while (remaining.length() > 0 && y <= 58)
+    {
+        int split = remaining.indexOf(' ');
+        int best = -1;
+        String line = "";
+
+        while (remaining.length() > 0)
+        {
+            split = remaining.indexOf(' ');
+            String candidate;
+
+            if (split < 0)
+            {
+                candidate = remaining;
+            }
+            else
+            {
+                String word = remaining.substring(0, split);
+                candidate = line.length() == 0 ? word : line + " " + word;
+            }
+
+            if (avaDisplay.getStrWidth(candidate.c_str()) > AVA_OLED_WIDTH - 4)
+            {
+                break;
+            }
+
+            line = candidate;
+
+            if (split < 0)
+            {
+                remaining = "";
+                break;
+            }
+
+            remaining = remaining.substring(split + 1);
+            remaining.trim();
+        }
+
+        if (line.length() == 0)
+        {
+            line = remaining.substring(0, min((size_t)20, remaining.length()));
+            remaining = remaining.substring(line.length());
+            remaining.trim();
+        }
+
+        int16_t width = avaDisplay.getStrWidth(line.c_str());
+        int16_t x = (AVA_OLED_WIDTH - width) / 2;
+        avaDisplay.drawStr(x, y, line.c_str());
+        y += 11;
+    }
+
+    avaDisplay.sendBuffer();
+}
+
+// ==================================================
 // OLED UPDATE
 // ==================================================
 
@@ -621,7 +719,7 @@ void avaOLEDUpdate()
     {
         return;
     }
-
+\n    if (avaOLEDMessageActive())\n    {\n        avaOLEDRenderMessage();\n        return;\n    }\n\n    if (avaOLEDMessageText.length() > 0)\n    {\n        avaOLEDMessageText = "";\n    }\n
     const unsigned long now =
         millis();
 
