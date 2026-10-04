@@ -7,6 +7,7 @@
 #include <mbedtls/sha256.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <esp_heap_caps.h>
 
 #include "Ava_NetworkLock.h"
 
@@ -568,60 +569,6 @@ bool avaOTAUpdate()
     }
 
     free(firmwareBuffer);
-
-    avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
-    avaOTAUISetProgress(100);
-
-    bool hashOK = true;
-
-    mbedtls_sha256_free(&sha256);
-
-    firmwareHttp.end();
-    firmwareClient.stop();
-
-    if (
-        !transferOK ||
-        written != static_cast<size_t>(contentLength) ||
-        !hashOK
-    )
-    {
-        Serial.println("[OTA] ERROR: Firmware transfer failed.");
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2500);
-        avaOTAUIEnd();
-        Update.abort();
-        return false;
-    }
-
-    String actualSha256;
-
-    for (uint8_t i = 0; i < sizeof(digest); ++i)
-    {
-        if (digest[i] < 0x10)
-        {
-            actualSha256 += "0";
-        }
-
-        actualSha256 += String(
-            digest[i],
-            HEX
-        );
-    }
-
-    actualSha256.toLowerCase();
-
-    Serial.print("[OTA] Actual SHA-256: ");
-    Serial.println(actualSha256);
-
-    if (actualSha256 != expectedSha256)
-    {
-        Serial.println("[OTA] ERROR: SHA-256 mismatch.");
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2500);
-        avaOTAUIEnd();
-        Update.abort();
-        return false;
-    }
 
     avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
 
