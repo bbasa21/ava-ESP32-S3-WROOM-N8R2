@@ -378,10 +378,19 @@ bool avaOTAUpdate()
     Serial.print(contentLength);
     Serial.println(" bytes");
 
-    if (!Update.begin(static_cast<size_t>(contentLength)))
+    // Download the complete image into PSRAM first.
+    // This prevents WiFi/TLS streaming from running at the same time as flash writes.
+    // The ESP32-S3 has 2 MB PSRAM and the current firmware image is below that limit.
+    uint8_t* firmwareBuffer = static_cast<uint8_t*>(
+        heap_caps_malloc(
+            static_cast<size_t>(contentLength),
+            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
+        )
+    );
+
+    if (firmwareBuffer == nullptr)
     {
-        Serial.print("[OTA] ERROR: Update.begin failed. Error: ");
-        Serial.println(Update.getError());
+        Serial.println("[OTA] ERROR: Not enough PSRAM for firmware buffer.");
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
@@ -392,47 +401,47 @@ bool avaOTAUpdate()
 
     mbedtls_sha256_context sha256;
     mbedtls_sha256_init(&sha256);
-
     mbedtls_sha256_starts(&sha256, 0);
 
-    uint8_t buffer[4096];
-    size_t written = 0;
+    size_t downloaded = 0;
     bool transferOK = true;
-
     WiFiClient* stream = firmwareHttp.getStreamPtr();
 
-    while (
-        stream->connected() &&
-        written < static_cast<size_t>(contentLength)
-    )
+    while (downloaded < static_cast<size_t>(contentLength))
     {
         size_t available = stream->available();
 
         if (available == 0)
         {
+            if (!stream->connected())
+            {
+                transferOK = false;
+                break;
+            }
+
             delay(1);
             continue;
         }
+
         size_t toRead = available;
 
-        if (toRead > sizeof(buffer))
+        if (toRead > 4096)
         {
-            toRead = sizeof(buffer);
+            toRead = 4096;
         }
 
         size_t remaining =
-            static_cast<size_t>(contentLength) - written;
+            static_cast<size_t>(contentLength) - downloaded;
 
         if (toRead > remaining)
         {
             toRead = remaining;
         }
 
-        size_t readBytes =
-            stream->readBytes(
-                buffer,
-                toRead
-            );
+        size_t readBytes = stream->readBytes(
+            firmwareBuffer + downloaded,
+            toRead
+        );
 
         if (readBytes == 0)
         {
@@ -440,29 +449,16 @@ bool avaOTAUpdate()
             break;
         }
 
-        size_t updateBytes =
-            Update.write(
-                buffer,
-                readBytes
-            );
-
-        if (updateBytes != readBytes)
-        {
-            Serial.println("[OTA] ERROR: Flash write failed.");
-            transferOK = false;
-            break;
-        }
-
         mbedtls_sha256_update(
             &sha256,
-            buffer,
+            firmwareBuffer + downloaded,
             readBytes
         );
 
-        written += readBytes;
+        downloaded += readBytes;
 
         avaOTAReportProgress(
-            written,
+            downloaded,
             static_cast<size_t>(contentLength)
         );
     }
@@ -473,6 +469,105 @@ bool avaOTAUpdate()
         &sha256,
         digest
     );
+
+    mbedtls_sha256_free(&sha256);
+
+    firmwareHttp.end();
+    firmwareClient.stop();
+
+    avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
+    avaOTAUISetProgress(100);
+
+    if (
+        !transferOK ||
+        downloaded != static_cast<size_t>(contentLength)
+    )
+    {
+        Serial.println("[OTA] ERROR: Firmware download failed.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        free(firmwareBuffer);
+        return false;
+    }
+
+    String actualSha256;
+
+    for (uint8_t i = 0; i < sizeof(digest); ++i)
+    {
+        if (digest[i] < 0x10)
+        {
+            actualSha256 += "0";
+        }
+
+        actualSha256 += String(
+            digest[i],
+            HEX
+        );
+    }
+
+    actualSha256.toLowerCase();
+
+    Serial.print("[OTA] Actual SHA-256: ");
+    Serial.println(actualSha256);
+
+    if (actualSha256 != expectedSha256)
+    {
+        Serial.println("[OTA] ERROR: SHA-256 mismatch.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        free(firmwareBuffer);
+        return false;
+    }
+
+    Serial.println("[OTA] Download verified in PSRAM. Starting flash write.");
+
+    if (!Update.begin(static_cast<size_t>(contentLength)))
+    {
+        Serial.print("[OTA] ERROR: Update.begin failed. Error: ");
+        Serial.println(Update.getError());
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        free(firmwareBuffer);
+        return false;
+    }
+
+    size_t written = 0;
+
+    while (written < static_cast<size_t>(contentLength))
+    {
+        size_t toWrite = static_cast<size_t>(contentLength) - written;
+
+        if (toWrite > 4096)
+        {
+            toWrite = 4096;
+        }
+
+        size_t updateBytes = Update.write(
+            firmwareBuffer + written,
+            toWrite
+        );
+
+        if (updateBytes != toWrite)
+        {
+            Serial.print("[OTA] ERROR: Flash write failed at ");
+            Serial.print(written);
+            Serial.print("/");
+            Serial.println(contentLength);
+            Update.abort();
+            avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+            delay(2500);
+            avaOTAUIEnd();
+            free(firmwareBuffer);
+            return false;
+        }
+
+        written += updateBytes;
+    }
+
+    free(firmwareBuffer);
 
     avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
     avaOTAUISetProgress(100);
