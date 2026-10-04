@@ -440,7 +440,6 @@ void avaCommunicationUpdate()
         avaOLEDShowMessage(message);
         avaCommunicationSend("OLED_MESSAGE_OK");
         Serial.println("[COMM] OLED message delivered.");
-        currentState = STATE_IDLE;
         return;
     }
 
