@@ -878,8 +878,17 @@ void processCommand(String cmd) {
     moveAva(MOVE_STOP);
   }
   else {
-    playVoice(VOICE_UNKNOWN);
-    setMood(MOOD_SAD);
+    String answer;
+
+    if (avaQnAAnswer(cmd, answer)) {
+      avaApplyEmotion(AVA_EMOTION_HAPPY);
+      avaOLEDShowMessage(answer);
+      Serial.print("[QNA] Answer: ");
+      Serial.println(answer);
+    } else {
+      playVoice(VOICE_UNKNOWN);
+      setMood(MOOD_SAD);
+    }
   }
 
   if (currentState != STATE_SLEEPING) {
