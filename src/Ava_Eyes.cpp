@@ -221,6 +221,20 @@ void avaEyesBlinkTick()
 
 
     // ==================================================
+
+    // ==================================================
+    // OLED Q&A / AI MESSAGE MODE
+    // --------------------------------------------------
+    // AvaOLEDUpdate() owns the OLED while an answer is
+    // being displayed. The Eye Engine must not render
+    // over it, otherwise the eyes and answer fight each
+    // other every 20 ms and the display flickers.
+    // ==================================================
+
+    if (avaOLEDMessageActive())
+    {
+        return;
+    }
     // OLED WEATHER MODE
     // ==================================================
 
