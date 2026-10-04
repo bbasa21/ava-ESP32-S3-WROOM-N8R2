@@ -422,6 +422,29 @@ void avaCommunicationUpdate()
 
     // ========================================================
     // ========================================================
+    // AVA Q&A / AI OLED MESSAGE
+    // ========================================================
+
+    if (data.startsWith("OLED_MESSAGE|"))
+    {
+        String message = data.substring(13);
+        message.trim();
+
+        if (message.length() == 0)
+        {
+            avaCommunicationSend("OLED_MESSAGE_REJECTED|EMPTY");
+            return;
+        }
+
+        avaApplyEmotion(AVA_EMOTION_HAPPY);
+        avaOLEDShowMessage(message);
+        avaCommunicationSend("OLED_MESSAGE_OK");
+        Serial.println("[COMM] OLED message delivered.");
+        currentState = STATE_IDLE;
+        return;
+    }
+
+    // ========================================================
     // TIC TAC TOE LOSS REACTION
     // ========================================================
 
