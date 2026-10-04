@@ -648,7 +648,7 @@ static void avaOLEDRenderMessage()
         return;
     }
 
-    avaDisplay.clearBuffer();
+    AvaDisplayAdapter::beginFrame();
     avaDisplay.setFont(u8g2_font_6x10_tf);
     avaDisplay.setDrawColor(1);
 
@@ -706,7 +706,7 @@ static void avaOLEDRenderMessage()
         y += 11;
     }
 
-    avaDisplay.sendBuffer();
+    AvaDisplayAdapter::endFrame();
 }
 
 // ==================================================
