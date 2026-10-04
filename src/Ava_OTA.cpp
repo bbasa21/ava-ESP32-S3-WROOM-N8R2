@@ -528,10 +528,15 @@ bool avaOTAUpdate()
 
     avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
 
-    if (!Update.end())
+    // The full image length was already verified above, so force finalization.
+    // Some ESP32 Arduino Update versions keep buffered bytes until end(true).
+    if (!Update.end(true))
     {
         Serial.print("[OTA] ERROR: Update.end failed. Error: ");
-        Serial.println(Update.getError());
+        Serial.print(Update.getError());
+        Serial.print(" (");
+        Update.printError(Serial);
+        Serial.println(")");
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
