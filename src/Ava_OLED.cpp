@@ -719,7 +719,18 @@ void avaOLEDUpdate()
     {
         return;
     }
-\n    if (avaOLEDMessageActive())\n    {\n        avaOLEDRenderMessage();\n        return;\n    }\n\n    if (avaOLEDMessageText.length() > 0)\n    {\n        avaOLEDMessageText = "";\n    }\n
+
+    if (avaOLEDMessageActive())
+    {
+        avaOLEDRenderMessage();
+        return;
+    }
+
+    if (avaOLEDMessageText.length() > 0)
+    {
+        avaOLEDMessageText = "";
+    }
+
     const unsigned long now =
         millis();
 
