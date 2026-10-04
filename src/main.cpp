@@ -34,6 +34,7 @@
 
 #include "BlinkAssistant.h"
 #include "Ava_Communication.h"
+#include "Ava_QnA.h"
 #include "Ava_WiFi.h"
 #include "Ava_OTA.h"
 #include "Ava_OTA_Display.h"
@@ -350,7 +351,29 @@ void processCommand(String cmd) {
   currentState = STATE_IDLE;
   return;
 }
+    // ================================
+  // OFFLINE Q&A / SERIAL
+  // Type: QNA|who is your developer
   // ================================
+  if (cmd.startsWith("qna|") || cmd.startsWith("question|")) {
+    int separator = cmd.indexOf('|');
+    String question = separator >= 0 ? cmd.substring(separator + 1) : "";
+    String answer;
+
+    if (avaQnAAnswer(question, answer)) {
+      avaApplyEmotion(AVA_EMOTION_HAPPY);
+      avaOLEDShowMessage(answer);
+      Serial.print("[QNA] Answer: ");
+      Serial.println(answer);
+    } else {
+      Serial.println("[QNA] OFFLINE ANSWER NOT FOUND.");
+    }
+
+    currentState = STATE_IDLE;
+    return;
+  }
+
+// ================================
   // Reference Eye Emotion Commands
   // ================================
   if (cmd == "emotion normal") {
