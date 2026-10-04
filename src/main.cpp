@@ -886,8 +886,12 @@ void processCommand(String cmd) {
       Serial.print("[QNA] Answer: ");
       Serial.println(answer);
     } else {
-      playVoice(VOICE_UNKNOWN);
-      setMood(MOOD_SAD);
+      // Unknown questions are forwarded to AVA PET for online AI.
+      avaApplyEmotion(AVA_EMOTION_FOCUSED);
+      avaOLEDShowMessage("THINKING...");
+      avaCommunicationSend("AI_REQUEST|" + cmd);
+      Serial.print("[AI] Request sent to AVA PET: ");
+      Serial.println(cmd);
     }
   }
 
