@@ -439,6 +439,8 @@ void avaCommunicationUpdate()
         avaApplyEmotion(AVA_EMOTION_HAPPY);
         avaOLEDShowMessage(message);
         avaCommunicationSend("OLED_MESSAGE_OK");
+        Serial.print("[QNA] Answer: ");
+        Serial.println(message);
         Serial.println("[COMM] OLED message delivered.");
         return;
     }
