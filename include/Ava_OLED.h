@@ -341,6 +341,13 @@ bool avaOLEDGreetingActive();
 void avaOLEDRenderGreetingOverlay();
 
 // ==================================================
+// MESSAGE / Q&A
+// ==================================================
+
+void avaOLEDShowMessage(const String& text);
+bool avaOLEDMessageActive();
+
+// ==================================================
 // CLEAR
 // ==================================================
 
