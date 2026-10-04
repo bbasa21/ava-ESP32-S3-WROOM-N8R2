@@ -277,10 +277,13 @@ void avaExitGameGazeLock();
 
 inline void avaRenderEyeFrame()
 {
-  // TIME / WEATHER own the OLED.
+  // The Eye Engine is never allowed to overwrite an active OLED owner.
+  // Priority: OTA > message > time/weather > normal eyes.
   if (
       avaOLED().mode == AVA_OLED_TIME ||
-      avaOLED().mode == AVA_OLED_WEATHER
+      avaOLED().mode == AVA_OLED_WEATHER ||
+      avaOLEDMessageActive() ||
+      avaOTAUIIsActive()
   )
   {
     return;
