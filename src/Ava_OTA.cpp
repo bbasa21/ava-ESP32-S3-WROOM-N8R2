@@ -430,7 +430,7 @@ bool avaOTAUpdate()
 
     avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
 
-    if (!Update.end(false))
+    if (!Update.end())
     {
         Serial.print("[OTA] ERROR: Update.end failed. Error: ");
         Serial.println(Update.getError());
