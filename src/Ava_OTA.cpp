@@ -8,6 +8,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_heap_caps.h>
+#include <esp_partition.h>
+#include <esp_ota_ops.h>
 
 #include "Ava_NetworkLock.h"
 
@@ -525,6 +527,123 @@ bool avaOTAUpdate()
         avaOTAUIEnd();
         return false;
     }
+
+    // Diagnostic integrity check: hash the bytes that are actually stored
+    // in the OTA partition, not just the bytes received over HTTPS.
+    const esp_partition_t* otaPartition =
+        esp_ota_get_next_update_partition(nullptr);
+
+    if (otaPartition == nullptr)
+    {
+        Serial.println("[OTA] ERROR: OTA partition not found.");
+        Update.end(false);
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.print("[OTA] OTA partition offset: 0x");
+    Serial.println(otaPartition->address, HEX);
+    Serial.print("[OTA] OTA partition size: ");
+    Serial.print(otaPartition->size);
+    Serial.println(" bytes");
+
+    if (static_cast<size_t>(contentLength) > otaPartition->size)
+    {
+        Serial.println("[OTA] ERROR: Firmware exceeds OTA partition.");
+        Update.end(false);
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    mbedtls_sha256_context flashSha256;
+    mbedtls_sha256_init(&flashSha256);
+    mbedtls_sha256_starts(&flashSha256, 0);
+
+    uint8_t flashBuffer[4096];
+    size_t flashReadOffset = 0;
+    bool flashReadOK = true;
+
+    while (flashReadOffset < static_cast<size_t>(contentLength))
+    {
+        size_t toRead =
+            static_cast<size_t>(contentLength) - flashReadOffset;
+
+        if (toRead > sizeof(flashBuffer))
+        {
+            toRead = sizeof(flashBuffer);
+        }
+
+        esp_err_t readResult = esp_partition_read(
+            otaPartition,
+            flashReadOffset,
+            flashBuffer,
+            toRead
+        );
+
+        if (readResult != ESP_OK)
+        {
+            Serial.print("[OTA] ERROR: Flash read failed: ");
+            Serial.println(esp_err_to_name(readResult));
+            flashReadOK = false;
+            break;
+        }
+
+        mbedtls_sha256_update(
+            &flashSha256,
+            flashBuffer,
+            toRead
+        );
+
+        flashReadOffset += toRead;
+    }
+
+    uint8_t flashDigest[32];
+
+    mbedtls_sha256_finish(
+        &flashSha256,
+        flashDigest
+    );
+
+    mbedtls_sha256_free(&flashSha256);
+
+    String flashSha256Hex;
+    flashSha256Hex.reserve(64);
+
+    for (size_t i = 0; i < sizeof(flashDigest); ++i)
+    {
+        flashSha256Hex += hex[(flashDigest[i] >> 4) & 0x0F];
+        flashSha256Hex += hex[flashDigest[i] & 0x0F];
+    }
+
+    Serial.print("[OTA] Flash SHA-256: ");
+    Serial.println(flashSha256Hex);
+
+    if (!flashReadOK || flashReadOffset != static_cast<size_t>(contentLength))
+    {
+        Serial.println("[OTA] ERROR: Could not verify OTA partition contents.");
+        Update.end(false);
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    if (flashSha256Hex != actualSha256)
+    {
+        Serial.println("[OTA] ERROR: Flash SHA-256 mismatch.");
+        Serial.println("[OTA] Downloaded image and stored OTA image differ.");
+        Update.end(false);
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.println("[OTA] Flash contents match downloaded firmware.");
 
     avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
 
