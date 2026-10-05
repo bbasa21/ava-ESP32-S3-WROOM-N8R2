@@ -405,6 +405,14 @@ bool avaOTAUpdate()
     const esp_partition_t* otaPartition =
         esp_ota_get_next_update_partition(nullptr);
 
+    // Save the target address/size before Update.end(). After finalization,
+    // the OTA boot slot changes, so esp_ota_get_next_update_partition() no
+    // longer identifies the image we just wrote.
+    const uint32_t otaPartitionAddress =
+        otaPartition ? otaPartition->address : 0;
+    const size_t otaPartitionSize =
+        otaPartition ? otaPartition->size : 0;
+
     if (otaPartition == nullptr)
     {
         Serial.println("[OTA] ERROR: OTA target partition not found.");
@@ -432,7 +440,7 @@ bool avaOTAUpdate()
     Serial.print("[OTA] Target OTA partition: ");
     Serial.print(otaPartition->label);
     Serial.print(" @ 0x");
-    Serial.println(otaPartition->address, HEX);
+    Serial.println(otaPartitionAddress, HEX);
 
     // Use Arduino-ESP32's native OTA stream path. It owns the internal
     // buffering and flash-write alignment; do not duplicate that buffering here.
@@ -478,18 +486,43 @@ bool avaOTAUpdate()
         return false;
     }
 
-    // Update.end(true) has now finalized and activated the saved target
-    // partition. Do NOT call esp_ota_get_next_update_partition() here:
-    // it would now point at the other OTA slot.
-    // Verify the exact partition selected before the update was finalized.
+    // Update.end(true) has finalized and activated the target slot.
+    // Resolve the boot partition again and verify its address. This avoids
+    // relying on a partition pointer across Update.end(), and guarantees
+    // that the SHA-256 read-back is performed on the image that will boot.
+    const esp_partition_t* verifiedPartition = esp_ota_get_boot_partition();
+
+    if (verifiedPartition == nullptr)
+    {
+        Serial.println("[OTA] ERROR: Boot partition could not be resolved.");
+        esp_ota_set_boot_partition(esp_ota_get_running_partition());
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
 
     Serial.print("[OTA] OTA partition offset: 0x");
-    Serial.println(otaPartition->address, HEX);
+    Serial.println(verifiedPartition->address, HEX);
     Serial.print("[OTA] OTA partition size: ");
-    Serial.print(otaPartition->size);
+    Serial.print(verifiedPartition->size);
     Serial.println(" bytes");
 
-    if (static_cast<size_t>(contentLength) > otaPartition->size)
+    Serial.print("[OTA] Expected target offset: 0x");
+    Serial.println(otaPartitionAddress, HEX);
+
+    if (verifiedPartition->address != otaPartitionAddress)
+    {
+        Serial.println("[OTA] ERROR: Boot partition is not the partition written by Update.");
+        esp_ota_set_boot_partition(esp_ota_get_running_partition());
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    if (static_cast<size_t>(contentLength) > otaPartitionSize ||
+        static_cast<size_t>(contentLength) > verifiedPartition->size)
     {
         Serial.println("[OTA] ERROR: Firmware exceeds OTA partition.");
         esp_ota_set_boot_partition(esp_ota_get_running_partition());
@@ -518,7 +551,7 @@ bool avaOTAUpdate()
         }
 
         esp_err_t readResult = esp_partition_read(
-            otaPartition,
+            verifiedPartition,
             flashReadOffset,
             flashBuffer,
             toRead
