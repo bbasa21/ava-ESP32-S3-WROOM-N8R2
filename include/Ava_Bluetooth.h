@@ -1145,6 +1145,9 @@ inline void processData(
             "[TTT BLE] REMATCH requested."
         );
 
+        // Rematch must stop DEBUG EYES random emotion cycling.
+        avaDisableDebugEyes();
+
 
         // --------------------------------------------------
         // IMPORTANT:
@@ -1540,6 +1543,9 @@ inline void executeCommand(
         Serial.println(
             "[TTT BLE] COMMAND REMATCH requested."
         );
+
+        // Rematch must stop DEBUG EYES random emotion cycling.
+        avaDisableDebugEyes();
 
         avaEnterGameGazeLock();
 
