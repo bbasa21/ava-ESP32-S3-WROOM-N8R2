@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "Ava_DisplayAdapter.h"
+#include "Ava_OLED.h"
 #include "EyeConfig.h"
 
 // ==================================================
@@ -252,7 +253,8 @@ inline void drawTime(
     uint8_t minute,
     bool colonVisible = true
 ) {
-    if (!AvaDisplayAdapter::isReady()) {
+    if (!AvaDisplayAdapter::isReady() ||
+        !avaOLEDCanRender(AVA_OLED_OWNER_STATUS)) {
         return;
     }
 
@@ -308,7 +310,8 @@ inline void drawTime(
 inline void drawBattery(
     uint8_t percent
 ) {
-    if (!AvaDisplayAdapter::isReady()) {
+    if (!AvaDisplayAdapter::isReady() ||
+        !avaOLEDCanRender(AVA_OLED_OWNER_STATUS)) {
         return;
     }
 
