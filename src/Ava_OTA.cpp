@@ -528,15 +528,40 @@ bool avaOTAUpdate()
         return false;
     }
 
-    // Diagnostic integrity check: hash the bytes that are actually stored
-    // in the OTA partition, not just the bytes received over HTTPS.
+    // Finalize UpdateClass before read-back verification.
+    // Update.write() may buffer data until end(true).
+    avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
+
+    if (!Update.end(true))
+    {
+        Serial.print("[OTA] ERROR: Update.end failed. Error: ");
+        Serial.print(Update.getError());
+        Serial.print(" (");
+        Update.printError(Serial);
+        Serial.println(")");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    if (!Update.isFinished())
+    {
+        Serial.println("[OTA] ERROR: Update is not finished.");
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    // Verify the finalized OTA partition contents.
     const esp_partition_t* otaPartition =
         esp_ota_get_next_update_partition(nullptr);
 
     if (otaPartition == nullptr)
     {
         Serial.println("[OTA] ERROR: OTA partition not found.");
-        Update.end(false);
+        esp_ota_set_boot_partition(esp_ota_get_running_partition());
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
@@ -552,7 +577,7 @@ bool avaOTAUpdate()
     if (static_cast<size_t>(contentLength) > otaPartition->size)
     {
         Serial.println("[OTA] ERROR: Firmware exceeds OTA partition.");
-        Update.end(false);
+        esp_ota_set_boot_partition(esp_ota_get_running_partition());
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
@@ -625,7 +650,7 @@ bool avaOTAUpdate()
     if (!flashReadOK || flashReadOffset != static_cast<size_t>(contentLength))
     {
         Serial.println("[OTA] ERROR: Could not verify OTA partition contents.");
-        Update.end(false);
+        esp_ota_set_boot_partition(esp_ota_get_running_partition());
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
@@ -636,7 +661,7 @@ bool avaOTAUpdate()
     {
         Serial.println("[OTA] ERROR: Flash SHA-256 mismatch.");
         Serial.println("[OTA] Downloaded image and stored OTA image differ.");
-        Update.end(false);
+        esp_ota_set_boot_partition(esp_ota_get_running_partition());
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
@@ -644,32 +669,6 @@ bool avaOTAUpdate()
     }
 
     Serial.println("[OTA] Flash contents match downloaded firmware.");
-
-    avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
-
-    // The full image length was already verified above, so force finalization.
-    // Some ESP32 Arduino Update versions keep buffered bytes until end(true).
-    if (!Update.end(true))
-    {
-        Serial.print("[OTA] ERROR: Update.end failed. Error: ");
-        Serial.print(Update.getError());
-        Serial.print(" (");
-        Update.printError(Serial);
-        Serial.println(")");
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2500);
-        avaOTAUIEnd();
-        return false;
-    }
-
-    if (!Update.isFinished())
-    {
-        Serial.println("[OTA] ERROR: Update is not finished.");
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2500);
-        avaOTAUIEnd();
-        return false;
-    }
 
     avaOTAUISetStatus(AVA_OTA_UI_RESTARTING);
     avaOTAUISetProgress(100);
