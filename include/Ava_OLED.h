@@ -47,6 +47,28 @@ AVA_OLED_DEBUG
 };
 
 // ==================================================
+// OLED RENDER OWNERS
+// ==================================================
+//
+// Exactly one renderer is allowed to own a complete OLED frame.
+// Priority is resolved centrally by avaOLEDCanRender().
+//
+// OTA > MESSAGE > TIME > WEATHER > STATUS > EYES
+// ==================================================
+
+enum AvaOLEDRenderOwner : uint8_t {
+    AVA_OLED_OWNER_NONE = 0,
+    AVA_OLED_OWNER_OTA,
+    AVA_OLED_OWNER_MESSAGE,
+    AVA_OLED_OWNER_TIME,
+    AVA_OLED_OWNER_WEATHER,
+    AVA_OLED_OWNER_STATUS,
+    AVA_OLED_OWNER_EYES
+};
+
+bool avaOLEDCanRender(AvaOLEDRenderOwner owner);
+
+// ==================================================
 // EYE STYLES
 // ==================================================
 
