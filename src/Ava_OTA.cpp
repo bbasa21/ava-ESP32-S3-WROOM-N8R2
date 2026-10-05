@@ -396,6 +396,43 @@ bool avaOTAUpdate()
         return false;
     }
 
+    // IMPORTANT:
+    // Capture the exact OTA partition selected by Update.begin().
+    // Update.end(true) activates this partition, so querying
+    // esp_ota_get_next_update_partition() after end() would return the
+    // other OTA slot. Read-back verification must use this saved target.
+    const esp_partition_t* otaPartition =
+        esp_ota_get_next_update_partition(nullptr);
+
+    if (otaPartition == nullptr)
+    {
+        Serial.println("[OTA] ERROR: OTA target partition not found.");
+        Update.abort();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        firmwareHttp.end();
+        firmwareClient.stop();
+        return false;
+    }
+
+    if (otaPartition == esp_ota_get_running_partition())
+    {
+        Serial.println("[OTA] ERROR: OTA target is the running partition.");
+        Update.abort();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        firmwareHttp.end();
+        firmwareClient.stop();
+        return false;
+    }
+
+    Serial.print("[OTA] Target OTA partition: ");
+    Serial.print(otaPartition->label);
+    Serial.print(" @ 0x");
+    Serial.println(otaPartition->address, HEX);
+
     mbedtls_sha256_context sha256;
     mbedtls_sha256_init(&sha256);
     mbedtls_sha256_starts(&sha256, 0);
@@ -497,7 +534,7 @@ bool avaOTAUpdate()
     )
     {
         Serial.println("[OTA] ERROR: Firmware download failed.");
-        Update.end(false);
+        Update.abort();
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
         delay(2500);
         avaOTAUIEnd();
@@ -545,28 +582,10 @@ bool avaOTAUpdate()
         return false;
     }
 
-    if (!Update.isFinished())
-    {
-        Serial.println("[OTA] ERROR: Update is not finished.");
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2500);
-        avaOTAUIEnd();
-        return false;
-    }
-
-    // Verify the finalized OTA partition contents.
-    const esp_partition_t* otaPartition =
-        esp_ota_get_next_update_partition(nullptr);
-
-    if (otaPartition == nullptr)
-    {
-        Serial.println("[OTA] ERROR: OTA partition not found.");
-        esp_ota_set_boot_partition(esp_ota_get_running_partition());
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2500);
-        avaOTAUIEnd();
-        return false;
-    }
+    // Update.end(true) has now finalized and activated the saved target
+    // partition. Do NOT call esp_ota_get_next_update_partition() here:
+    // it would now point at the other OTA slot.
+    // Verify the exact partition selected before the update was finalized.
 
     Serial.print("[OTA] OTA partition offset: 0x");
     Serial.println(otaPartition->address, HEX);
