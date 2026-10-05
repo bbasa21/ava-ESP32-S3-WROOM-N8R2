@@ -354,7 +354,48 @@ bool avaOTAUpdate()
     firmwareHttp.setTimeout(15000);
     firmwareHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-    int firmwareCode = firmwareHttp.GET();
+    // GitHub Releases may need a moment after the HTTPS connection is
+    // established before the redirected response stream becomes readable.
+    // Keep the exact firmware URL/path; only retry the same GET connection.
+    int firmwareCode = -1;
+    int firmwareAttempts = 0;
+
+    while (firmwareAttempts < 3)
+    {
+        firmwareAttempts++;
+
+        Serial.print("[OTA] Firmware HTTP GET attempt ");
+        Serial.print(firmwareAttempts);
+        Serial.println("/3...");
+
+        firmwareCode = firmwareHttp.GET();
+
+        if (firmwareCode == HTTP_CODE_OK)
+        {
+            break;
+        }
+
+        Serial.print("[OTA] Firmware GET failed: ");
+        Serial.println(firmwareCode);
+
+        firmwareHttp.end();
+        firmwareClient.stop();
+
+        if (firmwareAttempts < 3)
+        {
+            delay(1500);
+
+            if (!firmwareHttp.begin(firmwareClient, firmwareUrl))
+            {
+                Serial.println("[OTA] Firmware HTTP reconnect failed.");
+                continue;
+            }
+
+            firmwareHttp.setConnectTimeout(5000);
+            firmwareHttp.setTimeout(15000);
+            firmwareHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+        }
+    }
 
     if (firmwareCode != HTTP_CODE_OK)
     {
@@ -362,6 +403,9 @@ bool avaOTAUpdate()
         Serial.println(firmwareCode);
         firmwareHttp.end();
         firmwareClient.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
         return false;
     }
 
@@ -445,6 +489,18 @@ bool avaOTAUpdate()
     // Use Arduino-ESP32's native OTA stream path. It owns the internal
     // buffering and flash-write alignment; do not duplicate that buffering here.
     WiFiClient* stream = firmwareHttp.getStreamPtr();
+
+    if (stream == nullptr)
+    {
+        Serial.println("[OTA] ERROR: Firmware stream is unavailable.");
+        Update.abort();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        firmwareHttp.end();
+        firmwareClient.stop();
+        return false;
+    }
 
     size_t streamed = Update.writeStream(*stream);
 
