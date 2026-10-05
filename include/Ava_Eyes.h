@@ -264,6 +264,7 @@ void avaApplyCurrentGaze();
 
 // Debug-eyes behavior and game gaze lock.
 void avaEnableDebugEyes();
+void avaDisableDebugEyes();
 void avaEnterGameGazeLock();
 void avaExitGameGazeLock();
 
