@@ -429,6 +429,12 @@ bool avaOTAUpdate()
     // Stream the firmware directly into the OTA partition in small chunks.
     // Keep SHA-256 verification in our code because the ESP32 UpdateClass
     // available in this build does not provide setSHA256().
+    // Register the native UpdateClass progress callback so the OLED
+    // progress bar tracks the same writeStream() operation that downloads
+    // and flashes the firmware. This does not change the firmware URL or
+    // download path.
+    Update.onProgress(avaOTAReportProgress);
+
     if (!Update.begin(static_cast<size_t>(contentLength)))
     {
         Serial.print("[OTA] ERROR: Update.begin failed. Error: ");
