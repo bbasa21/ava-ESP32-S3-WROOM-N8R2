@@ -35,6 +35,7 @@
 #include "BlinkAssistant.h"
 #include "Ava_Communication.h"
 #include "Ava_QnA.h"
+#include "Ava_AI.h"
 #include "Ava_WiFi.h"
 #include "Ava_OTA.h"
 #include "Ava_OTA_Display.h"
@@ -886,12 +887,25 @@ void processCommand(String cmd) {
       Serial.print("[QNA] Answer: ");
       Serial.println(answer);
     } else {
-      // Unknown questions are forwarded to AVA PET for online AI.
+      // Unknown questions enter the AVA AI path.
+      // AI preparation checks WiFi + Internet before the
+      // future AVA AI API / Gemini request.
       avaApplyEmotion(AVA_EMOTION_FOCUSED);
       avaOLEDShowMessage("THINKING...");
-      avaCommunicationSend("AI_REQUEST|" + cmd);
-      Serial.print("[AI] Request sent to AVA PET: ");
-      Serial.println(cmd);
+
+      String aiAnswer;
+
+      if (avaAIAsk(cmd, aiAnswer))
+      {
+        avaApplyEmotion(AVA_EMOTION_HAPPY);
+        avaOLEDShowMessage(aiAnswer);
+        Serial.print("[AI] Answer: ");
+        Serial.println(aiAnswer);
+      }
+      else
+      {
+        Serial.println("[AI] No answer returned.");
+      }
     }
   }
 
