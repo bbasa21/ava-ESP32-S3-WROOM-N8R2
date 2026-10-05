@@ -68,6 +68,17 @@ void avaEnableDebugEyes()
     Serial.println("[EYES] DEBUG EYES ENABLED.");
 }
 
+void avaDisableDebugEyes()
+{
+    // Stop the reference engine from randomly cycling through all 18 emotions.
+    avaFace.RandomBehavior = false;
+
+    // Restore the normal AVA expression after leaving debug-eyes behavior.
+    avaApplyEmotion(AVA_EMOTION_NORMAL);
+
+    Serial.println("[EYES] DEBUG EYES DISABLED.");
+}
+
 void avaEnterGameGazeLock()
 {
     if (!avaGameGazeLockActive)
