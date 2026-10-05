@@ -1,7 +1,7 @@
 {
-  "build": 82,
+  "build": 83,
   "version": "0.0.0",
-  "commit": "6eae472a8f1f2a8ddee343823c8872615665216e",
-  "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-82/ava-firmware.bin",
-  "sha256": "c131f4c1234364a37277944ffd39669f2f76068dbb4f98347d083fe06e15431c"
+  "commit": "de742438390bc47c73ec329c5963310032f6ab56",
+  "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-83/ava-firmware.bin",
+  "sha256": "55a7ed8bbf2430c1c3270576b4f2a721cbf2add671259964618b5f7375105547"
 }
