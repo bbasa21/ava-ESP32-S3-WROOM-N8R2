@@ -277,12 +277,9 @@ void avaExitGameGazeLock();
 
 inline void avaRenderEyeFrame()
 {
-  // The Eye Engine must not overwrite an active OLED message/time/weather frame.
-  if (
-      avaOLED().mode == AVA_OLED_TIME ||
-      avaOLED().mode == AVA_OLED_WEATHER ||
-      avaOLEDMessageActive()
-  )
+  // The Eye Engine may render only when the central OLED
+  // arbiter grants it ownership.
+  if (!avaOLEDCanRender(AVA_OLED_OWNER_EYES))
   {
     return;
   }
