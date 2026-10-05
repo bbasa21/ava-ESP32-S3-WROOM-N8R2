@@ -3,6 +3,7 @@
 #include <U8g2lib.h>
 
 #include "Ava_DisplayAdapter.h"
+#include "Ava_OLED.h"
 
 extern U8G2_SSD1309_128X64_NONAME0_F_4W_SW_SPI avaDisplay;
 
@@ -66,7 +67,8 @@ void avaOTAUIEnd()
 
 static void avaOTAUIRender()
 {
-    if (!AvaDisplayAdapter::isReady())
+    if (!AvaDisplayAdapter::isReady() ||
+        !avaOLEDCanRender(AVA_OLED_OWNER_OTA))
     {
         return;
     }
