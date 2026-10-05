@@ -11,6 +11,44 @@
 #include "Ava_OTA_Display.h"
 
 // ==================================================
+// OLED RENDER OWNER ARBITRATION
+// ==================================================
+
+bool avaOLEDCanRender(AvaOLEDRenderOwner owner)
+{
+    // Highest priority: OTA.
+    if (avaOTAUIIsActive())
+    {
+        return owner == AVA_OLED_OWNER_OTA;
+    }
+
+    // AI / Q&A message owns the whole OLED while active.
+    if (avaOLEDMessageActive())
+    {
+        return owner == AVA_OLED_OWNER_MESSAGE;
+    }
+
+    switch (avaOLED().mode)
+    {
+        case AVA_OLED_TIME:
+            return owner == AVA_OLED_OWNER_TIME;
+
+        case AVA_OLED_WEATHER:
+            return owner == AVA_OLED_OWNER_WEATHER;
+
+        case AVA_OLED_BATTERY:
+            return owner == AVA_OLED_OWNER_STATUS;
+
+        case AVA_OLED_NORMAL:
+            return owner == AVA_OLED_OWNER_EYES;
+
+        case AVA_OLED_DEBUG:
+        default:
+            return false;
+    }
+}
+
+// ==================================================
 // FORWARD DECLARATIONS
 // ==================================================
 
@@ -326,7 +364,8 @@ bool avaOLEDHasTime()
 
 void avaOLEDRenderTime()
 {
-    if (!avaOLEDReady)
+    if (!avaOLEDReady ||
+        !avaOLEDCanRender(AVA_OLED_OWNER_TIME))
     {
         return;
     }
@@ -439,7 +478,8 @@ bool avaOLEDWeatherActive()
 
 void avaOLEDRenderWeather()
 {
-    if (!avaOLEDReady)
+    if (!avaOLEDReady ||
+        !avaOLEDCanRender(AVA_OLED_OWNER_WEATHER))
     {
         return;
     }
@@ -645,6 +685,11 @@ static void avaOLEDRenderMessage()
     if (!avaOLEDMessageActive())
     {
         avaOLEDMessageText = "";
+        return;
+    }
+
+    if (!avaOLEDCanRender(AVA_OLED_OWNER_MESSAGE))
+    {
         return;
     }
 
