@@ -214,7 +214,8 @@ static void avaOTAReportProgress(
         Serial.print("% (");
         Serial.print(written);
         Serial.print("/");
-        Serial.print(total);        Serial.println(")");
+        Serial.print(total);
+        Serial.println(")");
     }
 
     if (percent == 100)
@@ -571,7 +572,7 @@ bool avaOTAUpdate()
         return false;
     }
 
-    if (flashSha256Hex != actualSha256)
+    if (flashSha256Hex != expectedSha256)
     {
         Serial.println("[OTA] ERROR: Flash SHA-256 mismatch.");
         Serial.println("[OTA] Downloaded image and stored OTA image differ.");
