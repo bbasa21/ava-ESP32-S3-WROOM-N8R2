@@ -550,6 +550,8 @@ bool avaOTAUpdate()
 
     mbedtls_sha256_free(&flashSha256);
 
+    const char* hex = "0123456789abcdef";
+
     String flashSha256Hex;
     flashSha256Hex.reserve(64);
 
