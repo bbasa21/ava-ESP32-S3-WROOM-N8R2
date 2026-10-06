@@ -33,7 +33,7 @@ static String avaAIJsonEscape(const String& input)
         switch (c)
         {
             case '\\': output += "\\\\"; break;
-            case '"':  output += "\\""; break;
+            case '"':  output += "\\\""; break;
             case '\n': output += "\\n"; break;
             case '\r': output += "\\r"; break;
             case '\t': output += "\\t"; break;
