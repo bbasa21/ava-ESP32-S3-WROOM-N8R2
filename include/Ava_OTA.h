@@ -3,11 +3,10 @@
 
 #include <Arduino.h>
 
-// ==================================================
-// AVA OTA
-// ==================================================
-
 bool avaOTAUpdate();
+bool avaOTACheckForUpdate();
+bool avaOTAInstallUpdate();
+
 void avaOTAStartTask();
 bool avaOTAIsRunning();
 
