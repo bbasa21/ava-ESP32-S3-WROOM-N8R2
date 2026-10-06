@@ -367,6 +367,32 @@ void processCommand(String cmd) {
   // OFFLINE Q&A / SERIAL
   // Type: QNA|who is your developer
   // ================================
+  // ================================
+// GEMINI AI
+// Type: ask|your question
+// or:  gemini|your question
+// ================================
+  if (cmd.startsWith("ask|") || cmd.startsWith("gemini|")) {
+    int separator = cmd.indexOf('|');
+    String question = separator >= 0 ? cmd.substring(separator + 1) : "";
+    question.trim();
+
+    String answer;
+
+    if (avaAIAsk(question, answer)) {
+      avaApplyEmotion(AVA_EMOTION_HAPPY);
+      avaOLEDShowMessage(answer);
+      Serial.println("[GEMINI] Answer delivered to OLED.");
+    } else {
+      avaApplyEmotion(AVA_EMOTION_SAD_REFERENCE);
+      avaOLEDShowMessage("GEMINI ERROR");
+      Serial.println("[GEMINI] Request failed.");
+    }
+
+    currentState = STATE_IDLE;
+    return;
+  }
+
   if (cmd.startsWith("qna|") || cmd.startsWith("question|")) {
     int separator = cmd.indexOf('|');
     String question = separator >= 0 ? cmd.substring(separator + 1) : "";
