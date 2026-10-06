@@ -200,6 +200,17 @@ void loop() {
     avaWiFiUpdate();
   }
 
+  // OTA owns the OLED too. Keep the normal eye/behavior render loop
+  // completely out of the way while the dedicated OTA task is active.
+  // Otherwise eye updates can redraw over the OTA progress bar after
+  // avaOTAUIUpdate() renders it.
+  if (avaOTAIsRunning())
+  {
+    avaOTAUIUpdate();
+    delay(20);
+    return;
+  }
+
   // Update raw touch state first so all higher-level logic sees
   // the current physical touch state.
   avaTouchUpdate();
