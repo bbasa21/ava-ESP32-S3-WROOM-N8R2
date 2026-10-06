@@ -533,9 +533,35 @@ bool avaOTAUpdate()
 
     // Finalize UpdateClass before read-back verification so all buffered
     // bytes are physically committed to the OTA partition.
+    //
+    // IMPORTANT:
+    // writeStream() already knows the exact firmware size. Do NOT use
+    // Update.end(true) here because "true" allows finalization even when
+    // Update's internal progress is incomplete. That can mask a flash-write
+    // failure and let us reach the custom SHA-256 read-back with a corrupted
+    // image. end(false) forces the Update library to reject an incomplete
+    // internal write before the new slot can be activated.
     avaOTAUISetStatus(AVA_OTA_UI_INSTALLING);
 
-    if (!Update.end(true))
+    Serial.print("[OTA] Update progress before finalize: ");
+    Serial.print(Update.progress());
+    Serial.print("/");
+    Serial.println(Update.size());
+
+    if (!Update.isFinished())
+    {
+        Serial.print("[OTA] ERROR: Update internal progress is incomplete: ");
+        Serial.print(Update.progress());
+        Serial.print("/");
+        Serial.println(Update.size());
+        Update.abort();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2500);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    if (!Update.end(false))
     {
         Serial.print("[OTA] ERROR: Update.end failed. Error: ");
         Serial.print(Update.getError());
