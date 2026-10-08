@@ -6,5 +6,7 @@
 bool avaAIPrepare();
 bool avaAIReady();
 bool avaAIAsk(const String& question, String& answer);
+bool avaAISetApiKey(const String& apiKey);
+bool avaAIHasApiKey();
 
 #endif
