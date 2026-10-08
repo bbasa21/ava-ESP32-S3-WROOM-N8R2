@@ -318,6 +318,15 @@ bool avaAIAsk(const String& question, String& answer)
     }
 
     http.setTimeout(30000);
+
+    const char* responseHeaders[] = {
+        "Content-Type",
+        "Content-Length",
+        "Transfer-Encoding",
+        "Content-Encoding"
+    };
+    http.collectHeaders(responseHeaders, 4);
+
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + apiKey);
 
@@ -342,7 +351,8 @@ bool avaAIAsk(const String& question, String& answer)
                 "\"role\":\"user\","
                 "\"content\":\"" + avaAIJsonEscape(question) + "\""
             "}"
-        "]"
+        "],"
+        "\"stream\":false"
         "}";
 
     Serial.println("[AI] Sending request to OpenRouter...");
@@ -350,6 +360,22 @@ bool avaAIAsk(const String& question, String& answer)
     Serial.println(question);
 
     const int httpCode = http.POST(body);
+    const String payload = http.getString();
+
+    Serial.print("[AI] Content-Type: ");
+    Serial.println(http.header("Content-Type"));
+
+    Serial.print("[AI] Content-Length: ");
+    Serial.println(http.header("Content-Length"));
+
+    Serial.print("[AI] Transfer-Encoding: ");
+    Serial.println(http.header("Transfer-Encoding"));
+
+    Serial.print("[AI] Content-Encoding: ");
+    Serial.println(http.header("Content-Encoding"));
+
+    Serial.print("[AI] HTTP status: ");
+    Serial.println(httpCode);
 
     if (httpCode <= 0)
     {
@@ -359,14 +385,6 @@ bool avaAIAsk(const String& question, String& answer)
         aiReady = false;
         return false;
     }
-
-    const String payload = http.getString();
-
-    Serial.print("[AI] Content-Type: ");
-    Serial.println(http.header("Content-Type"));
-
-    Serial.print("[AI] HTTP status: ");
-    Serial.println(httpCode);
 
     if (httpCode < 200 || httpCode >= 300)
     {
@@ -394,8 +412,6 @@ bool avaAIAsk(const String& question, String& answer)
         return false;
     }
 
-    http.end();
-
     Serial.print("[AI] OpenRouter response body length: ");
     Serial.println(payload.length());
 
@@ -404,9 +420,12 @@ bool avaAIAsk(const String& question, String& answer)
         Serial.println("[AI] ERROR: Could not extract OpenRouter response text.");
         Serial.println("[AI] Raw response:");
         Serial.println(payload);
+        http.end();
         aiReady = false;
         return false;
     }
+
+    http.end();
 
     Serial.println("[AI] OpenRouter response received.");
     Serial.print("[AI] Answer: ");
