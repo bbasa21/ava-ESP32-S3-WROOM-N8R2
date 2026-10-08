@@ -704,8 +704,11 @@ static void avaOLEDRenderMessage()
     const bool rtl =
         avaPersianHasRTL(avaOLEDMessageText);
 
-    // Keep the original UTF-8 text for U8g2.
-    // Manual presentation-form shaping caused corrupted Persian glyphs.
+    // Shape Persian letters into presentation forms, then draw in normal
+    // direction. U8g2 does not perform Arabic joining by itself.
+    const String displayText =
+        rtl ? avaPersianShape(avaOLEDMessageText) : avaOLEDMessageText;
+
     avaDisplay.setFont(
         u8g2_font_unifont_t_arabic
     );
@@ -713,7 +716,7 @@ static void avaOLEDRenderMessage()
     avaDisplay.setDrawColor(1);
     avaDisplay.setFontDirection(0);
 
-    String remaining = avaOLEDMessageText;
+    String remaining = displayText;
     int16_t y = 10;
 
     while (remaining.length() > 0 && y <= 58)
