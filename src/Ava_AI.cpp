@@ -18,15 +18,11 @@ static const char* AVA_PREFS_API_KEY = "or_key";
 static String avaAIGetApiKey()
 {
     Preferences prefs;
-
     if (!prefs.begin(AVA_PREFS_NAMESPACE, true))
-    {
         return "";
-    }
 
     String key = prefs.getString(AVA_PREFS_API_KEY, "");
     prefs.end();
-
     return key;
 }
 
@@ -34,22 +30,15 @@ bool avaAISetApiKey(const String& apiKey)
 {
     String key = apiKey;
     key.trim();
-
     if (key.length() == 0)
-    {
         return false;
-    }
 
     Preferences prefs;
-
     if (!prefs.begin(AVA_PREFS_NAMESPACE, false))
-    {
         return false;
-    }
 
     const size_t written = prefs.putString(AVA_PREFS_API_KEY, key);
     prefs.end();
-
     return written > 0;
 }
 
@@ -86,17 +75,13 @@ static String avaAIJsonEscape(const String& input)
 static bool avaAIExtractText(const String& payload, String& answer)
 {
     answer = "";
-
     int contentKey = payload.indexOf("\"content\"");
 
     while (contentKey >= 0)
     {
         int colon = payload.indexOf(':', contentKey + 9);
-
         if (colon < 0)
-        {
             return false;
-        }
 
         int valueStart = colon + 1;
 
@@ -113,7 +98,6 @@ static bool avaAIExtractText(const String& payload, String& answer)
         {
             String decoded;
             decoded.reserve(512);
-
             bool escaped = false;
 
             for (int i = valueStart + 1; i < payload.length(); ++i)
@@ -124,15 +108,15 @@ static bool avaAIExtractText(const String& payload, String& answer)
                 {
                     switch (c)
                     {
-                        case '"':  decoded += '"';  break;
+                        case '"':  decoded += '"'; break;
                         case '\\': decoded += '\\'; break;
-                        case 'n':  decoded += '\n'; break;
-                        case 'r':  decoded += '\r'; break;
-                        case 't':  decoded += '\t'; break;
+                        case 'n': decoded += '\n'; break;
+                        case 'r': decoded += '\r'; break;
+                        case 't': decoded += '\t'; break;
                         case '/': decoded += '/'; break;
                         case 'b': decoded += '\\b'; break;
                         case 'f': decoded += '\\f'; break;
-                        default:   decoded += c; break;
+                        default: decoded += c; break;
                     }
 
                     escaped = false;
@@ -170,12 +154,9 @@ static String avaAIExtractError(const String& payload)
     int start = payload.indexOf(marker);
 
     if (start < 0)
-    {
         return "";
-    }
 
     start += marker.length();
-
     String message;
 
     for (int i = start; i < payload.length(); ++i)
@@ -183,9 +164,7 @@ static String avaAIExtractError(const String& payload)
         const char c = payload[i];
 
         if (c == '"' && (i == start || payload[i - 1] != '\\'))
-        {
             break;
-        }
 
         if (c == '\\' && i + 1 < payload.length())
         {
@@ -281,9 +260,7 @@ bool avaAIAsk(const String& question, String& answer)
     }
 
     if (!avaAIPrepare())
-    {
         return false;
-    }
 
     const String apiKey = avaAIGetApiKey();
 
@@ -307,7 +284,6 @@ bool avaAIAsk(const String& question, String& answer)
     client.setInsecure();
 
     HTTPClient http;
-
     const String url = "https://openrouter.ai/api/v1/chat/completions";
 
     if (!http.begin(client, url))
@@ -318,6 +294,11 @@ bool avaAIAsk(const String& question, String& answer)
     }
 
     http.setTimeout(30000);
+
+    // OpenRouter is returning Transfer-Encoding: chunked to the ESP32.
+    // Force HTTP/1.0 so the response uses a normal body instead of chunked
+    // transfer encoding, which avoids an empty/whitespace payload on ESP32.
+    http.useHTTP10(true);
 
     const char* responseHeaders[] = {
         "Content-Type",
