@@ -85,56 +85,80 @@ static String avaAIJsonEscape(const String& input)
 
 static bool avaAIExtractText(const String& payload, String& answer)
 {
-    const String marker = "\"content\":\"";
-    int start = payload.indexOf(marker);
+    answer = "";
 
-    if (start < 0)
+    int contentKey = payload.indexOf("\"content\"");
+
+    while (contentKey >= 0)
     {
-        return false;
-    }
+        int colon = payload.indexOf(':', contentKey + 9);
 
-    start += marker.length();
-
-    String decoded;
-    decoded.reserve(512);
-
-    bool escaped = false;
-
-    for (int i = start; i < payload.length(); ++i)
-    {
-        const char c = payload[i];
-
-        if (escaped)
+        if (colon < 0)
         {
-            switch (c)
+            return false;
+        }
+
+        int valueStart = colon + 1;
+
+        while (valueStart < payload.length() &&
+               (payload[valueStart] == ' ' ||
+                payload[valueStart] == '\\t' ||
+                payload[valueStart] == '\\r' ||
+                payload[valueStart] == '\\n'))
+        {
+            ++valueStart;
+        }
+
+        if (valueStart < payload.length() && payload[valueStart] == '"')
+        {
+            String decoded;
+            decoded.reserve(512);
+
+            bool escaped = false;
+
+            for (int i = valueStart + 1; i < payload.length(); ++i)
             {
-                case '"':  decoded += '"';  break;
-                case '\\': decoded += '\\'; break;
-                case 'n':  decoded += '\n'; break;
-                case 'r':  decoded += '\r'; break;
-                case 't':  decoded += '\t'; break;
-                case '/': decoded += '/'; break;
-                default:   decoded += c; break;
+                const char c = payload[i];
+
+                if (escaped)
+                {
+                    switch (c)
+                    {
+                        case '"':  decoded += '"';  break;
+                        case '\\': decoded += '\\'; break;
+                        case 'n':  decoded += '\n'; break;
+                        case 'r':  decoded += '\r'; break;
+                        case 't':  decoded += '\t'; break;
+                        case '/': decoded += '/'; break;
+                        case 'b': decoded += '\\b'; break;
+                        case 'f': decoded += '\\f'; break;
+                        default:   decoded += c; break;
+                    }
+
+                    escaped = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    answer = decoded;
+                    answer.trim();
+                    return answer.length() > 0;
+                }
+
+                decoded += c;
             }
 
-            escaped = false;
-            continue;
+            return false;
         }
 
-        if (c == '\\')
-        {
-            escaped = true;
-            continue;
-        }
-
-        if (c == '"')
-        {
-            answer = decoded;
-            answer.trim();
-            return answer.length() > 0;
-        }
-
-        decoded += c;
+        contentKey = payload.indexOf("\"content\"", contentKey + 9);
     }
 
     return false;
@@ -368,6 +392,9 @@ bool avaAIAsk(const String& question, String& answer)
     }
 
     http.end();
+
+    Serial.print("[AI] OpenRouter response body length: ");
+    Serial.println(payload.length());
 
     if (!avaAIExtractText(payload, answer))
     {
