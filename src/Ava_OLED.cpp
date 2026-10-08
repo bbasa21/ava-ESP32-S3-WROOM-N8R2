@@ -837,6 +837,31 @@ void avaOLEDClear()
 }
 
 // ==================================================
+// UPDATE
+// ==================================================
+
+void avaOLEDUpdate()
+{
+    if (!avaOLEDReady)
+    {
+        return;
+    }
+
+    if (avaOTAUIIsActive())
+    {
+        return;
+    }
+
+    if (avaOLEDMessageActive())
+    {
+        avaOLEDRenderMessage();
+        return;
+    }
+
+    avaOLEDRender();
+}
+
+// ==================================================
 // RENDER
 // ==================================================
 
