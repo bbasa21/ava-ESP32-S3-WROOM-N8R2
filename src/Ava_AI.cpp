@@ -3,21 +3,60 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 
 #include "Ava_WiFi.h"
 #include "Ava_NetworkLock.h"
 
-#if __has_include("Ava_Secrets.h")
-#include "Ava_Secrets.h"
-#endif
-
-#ifndef AVA_OPENROUTER_API_KEY
-#define AVA_OPENROUTER_API_KEY ""
-#endif
-
 #ifndef AVA_OPENROUTER_MODEL
 #define AVA_OPENROUTER_MODEL "openrouter/free"
 #endif
+
+static const char* AVA_PREFS_NAMESPACE = "ava_ai";
+static const char* AVA_PREFS_API_KEY = "or_key";
+
+static String avaAIGetApiKey()
+{
+    Preferences prefs;
+
+    if (!prefs.begin(AVA_PREFS_NAMESPACE, true))
+    {
+        return "";
+    }
+
+    String key = prefs.getString(AVA_PREFS_API_KEY, "");
+    prefs.end();
+
+    return key;
+}
+
+bool avaAISetApiKey(const String& apiKey)
+{
+    String key = apiKey;
+    key.trim();
+
+    if (key.length() == 0)
+    {
+        return false;
+    }
+
+    Preferences prefs;
+
+    if (!prefs.begin(AVA_PREFS_NAMESPACE, false))
+    {
+        return false;
+    }
+
+    const size_t written = prefs.putString(AVA_PREFS_API_KEY, key);
+    prefs.end();
+
+    return written > 0;
+}
+
+bool avaAIHasApiKey()
+{
+    return avaAIGetApiKey().length() > 0;
+}
 
 static bool aiReady = false;
 
@@ -157,10 +196,12 @@ bool avaAIPrepare()
     Serial.println("=========== AVA AI ===========");
     Serial.println("[AI] OpenRouter request received.");
 
-    if (String(AVA_OPENROUTER_API_KEY).length() == 0)
+    const String apiKey = avaAIGetApiKey();
+
+    if (apiKey.length() == 0)
     {
         Serial.println("[AI] ERROR: OpenRouter API key is not configured.");
-        Serial.println("[AI] Create include/Ava_Secrets.h locally.");
+        Serial.println("[AI] Set the key once with: apikey|YOUR_OPENROUTER_KEY");
         Serial.println("==============================");
         return false;
     }
@@ -245,7 +286,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     http.setTimeout(30000);
     http.addHeader("Content-Type", "application/json");
-    http.addHeader("Authorization", String("Bearer ") + AVA_OPENROUTER_API_KEY);
+    http.addHeader("Authorization", String("Bearer ") + apiKey);
 
     const String systemInstruction =
         "You are AVA, a friendly personal robot created by Ali. "
