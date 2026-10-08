@@ -193,18 +193,7 @@ String avaPersianShape(const String& text)
         const bool joinsToNext =
             nextIndex >= 0 &&
             form.dual &&
-            (AVA_PERSIAN_FORMS[nextIndex].dual ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0622 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0623 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0624 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0625 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0627 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0629 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x062F ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0630 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0631 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0632 ||
-             AVA_PERSIAN_FORMS[nextIndex].code == 0x0648);
+            AVA_PERSIAN_FORMS[nextIndex].dual;
 
         uint32_t shaped = form.isolated;
 
