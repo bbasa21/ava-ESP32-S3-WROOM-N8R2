@@ -6,6 +6,7 @@
 #include "Ava_DisplayAdapter.h"
 #include "EyeDrawer.h"
 #include "Ava_Font.h"
+#include "Ava_Persian.h"
 #include "Ava_Eyes.h"
 #include "Ava_WiFi.h"
 #include "Ava_OTA_Display.h"
@@ -694,21 +695,39 @@ static void avaOLEDRenderMessage()
     }
 
     AvaDisplayAdapter::beginFrame();
-    avaDisplay.setFont(u8g2_font_6x10_tf);
-    avaDisplay.setDrawColor(1);
 
-    String remaining = avaOLEDMessageText;
+    const String shapedText =
+        avaPersianShape(avaOLEDMessageText);
+
+    const bool rtl =
+        avaPersianHasRTL(avaOLEDMessageText);
+
+    avaDisplay.setFont(
+        u8g2_font_samim_10_t_all
+    );
+
+    avaDisplay.setDrawColor(1);
+    avaDisplay.setFontDirection(
+        rtl ? 2 : 0
+    );
+
+    String remaining = shapedText;
     int16_t y = 10;
 
     while (remaining.length() > 0 && y <= 58)
     {
-        int split = remaining.indexOf(' ');
-        int best = -1;
+        remaining.trim();
+
+        if (remaining.length() == 0)
+        {
+            break;
+        }
+
         String line = "";
 
         while (remaining.length() > 0)
         {
-            split = remaining.indexOf(' ');
+            const int split = remaining.indexOf(' ');
             String candidate;
 
             if (split < 0)
@@ -717,11 +736,17 @@ static void avaOLEDRenderMessage()
             }
             else
             {
-                String word = remaining.substring(0, split);
-                candidate = line.length() == 0 ? word : line + " " + word;
+                const String word =
+                    remaining.substring(0, split);
+
+                candidate =
+                    line.length() == 0
+                        ? word
+                        : line + " " + word;
             }
 
-            if (avaDisplay.getStrWidth(candidate.c_str()) > AVA_OLED_WIDTH - 4)
+            if (avaDisplay.getUTF8Width(candidate.c_str()) >
+                AVA_OLED_WIDTH - 4)
             {
                 break;
             }
@@ -734,160 +759,44 @@ static void avaOLEDRenderMessage()
                 break;
             }
 
-            remaining = remaining.substring(split + 1);
-            remaining.trim();
+            remaining =
+                remaining.substring(split + 1);
         }
 
         if (line.length() == 0)
         {
-            line = remaining.substring(0, min((size_t)20, remaining.length()));
-            remaining = remaining.substring(line.length());
+            line =
+                remaining.substring(
+                    0,
+                    min((size_t)20, remaining.length())
+                );
+
+            remaining =
+                remaining.substring(line.length());
+
             remaining.trim();
         }
 
-        int16_t width = avaDisplay.getStrWidth(line.c_str());
-        int16_t x = (AVA_OLED_WIDTH - width) / 2;
-        avaDisplay.drawStr(x, y, line.c_str());
+        const int16_t width =
+            avaDisplay.getUTF8Width(line.c_str());
+
+        const int16_t x =
+            rtl
+                ? (AVA_OLED_WIDTH + width) / 2
+                : (AVA_OLED_WIDTH - width) / 2;
+
+        avaDisplay.drawUTF8(
+            x,
+            y,
+            line.c_str()
+        );
+
         y += 11;
     }
 
+    avaDisplay.setFontDirection(0);
+
     AvaDisplayAdapter::endFrame();
-}
-
-// ==================================================
-// OLED UPDATE
-// ==================================================
-
-void avaOLEDUpdate()
-{
-    if (!avaOLEDReady)
-    {
-        return;
-    }
-
-    if (avaOLEDMessageActive())
-    {
-        avaOLEDRenderMessage();
-        return;
-    }
-
-    if (avaOLEDMessageText.length() > 0)
-    {
-        avaOLEDMessageText = "";
-    }
-
-    const unsigned long now =
-        millis();
-
-    avaOLED().lastUpdateMs =
-        now;
-
-    // ==================================================
-    // WEATHER MODE
-    // ==================================================
-
-    if (
-        avaOLED().mode ==
-        AVA_OLED_WEATHER
-    )
-    {
-        const unsigned long elapsed =
-            now -
-            avaWeatherDisplayStartedMs;
-
-        if (
-            elapsed >=
-            AVA_WEATHER_DISPLAY_DURATION_MS
-        )
-        {
-            Serial.println(
-                "[OLED] Weather display finished."
-            );
-
-            avaOLEDSetMode(
-                AVA_OLED_NORMAL
-            );
-
-            avaRenderEyeFrame();
-
-            Serial.println(
-                "[OLED] Display control returned to Eye Engine."
-            );
-
-            return;
-        }
-
-        avaOLEDRenderWeather();
-
-        return;    }
-
-    // ==================================================
-    // TIME MODE
-    // ==================================================
-
-    if (
-        avaOLED().mode ==
-        AVA_OLED_TIME
-    )
-    {
-        const unsigned long elapsed =
-            now -
-            avaTimeDisplayStartedMs;
-
-        if (
-            elapsed >=
-            AVA_TIME_DISPLAY_DURATION_MS
-        )
-        {
-            Serial.println(
-                "[OLED] Time display finished."
-            );
-
-            avaOLEDSetMode(
-                AVA_OLED_NORMAL
-            );
-
-            avaOLEDRestoreNormalEyes();
-
-            avaRenderEyeFrame();
-
-            Serial.println(
-                "[OLED] Display control returned to Eye Engine."
-            );
-
-            return;
-        }
-
-        avaOLEDRenderTime();
-
-        return;
-    }
-
-    // ==================================================
-    // OTHER MODES
-    // ==================================================
-
-    switch (
-        avaOLED().mode
-    )
-    {
-        case AVA_OLED_BATTERY:
-
-            // Reserved for battery UI.
-            break;
-
-        case AVA_OLED_DEBUG:
-
-            // Reserved for OLED debug UI.
-            break;
-
-        case AVA_OLED_NORMAL:
-
-        default:
-
-            // NORMAL is owned by Eye Engine.
-            break;
-    }
 }
 
 // ==================================================
