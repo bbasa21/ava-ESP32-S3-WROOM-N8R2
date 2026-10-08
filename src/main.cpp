@@ -327,6 +327,22 @@ void handleSerialInput() {
 
 void processCommand(String cmd) {
   cmd.trim();
+
+  // API key provisioning is handled before lowercasing so the key stays intact.
+  if (cmd.startsWith("apikey|")) {
+    String apiKey = cmd.substring(7);
+    apiKey.trim();
+
+    if (avaAISetApiKey(apiKey)) {
+      Serial.println("[AI] OpenRouter API key saved securely in NVS.");
+    } else {
+      Serial.println("[AI] ERROR: Could not save OpenRouter API key.");
+    }
+
+    currentState = STATE_IDLE;
+    return;
+  }
+
   cmd.toLowerCase();
 
   lastInteractionTime = millis();
