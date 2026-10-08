@@ -297,8 +297,7 @@ void avaOLEDApplyContrast(
 {
     if (!avaOLEDReady)
     {
-        return;
-    }
+        return;    }
 
     avaDisplay.setContrast(contrast);
 }
@@ -485,6 +484,13 @@ void avaOLEDRenderWeather()
         return;
     }
 
+    // Return control to the eye engine after the weather timeout.
+    if (millis() - avaWeatherDisplayStartedMs >= AVA_WEATHER_DISPLAY_DURATION_MS)
+    {
+        avaOLEDSetMode(AVA_OLED_NORMAL);
+        return;
+    }
+
     AvaDisplayAdapter::beginFrame();
 
     // --------------------------------------------------
@@ -597,8 +603,7 @@ void avaOLEDRenderWeather()
         "%  W:" +
         String(
             avaWeatherWindSpeed(),
-            1
-        );
+            1        );
 
     avaDisplay.drawStr(
         18,
@@ -696,14 +701,15 @@ static void avaOLEDRenderMessage()
 
     AvaDisplayAdapter::beginFrame();
 
-    const String shapedText =
-        avaPersianShape(avaOLEDMessageText);
-
     const bool rtl =
         avaPersianHasRTL(avaOLEDMessageText);
 
+    // Persian shaping/font handling is used only for RTL AI messages.
+    const String shapedText =
+        rtl ? avaPersianShape(avaOLEDMessageText) : avaOLEDMessageText;
+
     avaDisplay.setFont(
-        u8g2_font_samim_10_t_all
+        u8g2_font_unifont_t_arabic
     );
 
     avaDisplay.setDrawColor(1);
@@ -897,7 +903,6 @@ void avaOLEDRender()
 
             // Reserved.
             return;
-
         case AVA_OLED_NORMAL:
 
         default:
