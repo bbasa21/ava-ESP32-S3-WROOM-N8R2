@@ -11,12 +11,12 @@
 #include "Ava_Secrets.h"
 #endif
 
-#ifndef AVA_GEMINI_API_KEY
-#define AVA_GEMINI_API_KEY ""
+#ifndef AVA_OPENROUTER_API_KEY
+#define AVA_OPENROUTER_API_KEY ""
 #endif
 
-#ifndef AVA_GEMINI_MODEL
-#define AVA_GEMINI_MODEL "gemini-3.8-flash"
+#ifndef AVA_OPENROUTER_MODEL
+#define AVA_OPENROUTER_MODEL "openrouter/free"
 #endif
 
 static bool aiReady = false;
@@ -46,7 +46,7 @@ static String avaAIJsonEscape(const String& input)
 
 static bool avaAIExtractText(const String& payload, String& answer)
 {
-    const String marker = "\"text\":\"";
+    const String marker = "\"content\":\"";
     int start = payload.indexOf(marker);
 
     if (start < 0)
@@ -74,7 +74,7 @@ static bool avaAIExtractText(const String& payload, String& answer)
                 case 'n':  decoded += '\n'; break;
                 case 'r':  decoded += '\r'; break;
                 case 't':  decoded += '\t'; break;
-                case '/':  decoded += '/'; break;
+                case '/': decoded += '/'; break;
                 default:   decoded += c; break;
             }
 
@@ -155,11 +155,11 @@ bool avaAIPrepare()
 
     Serial.println();
     Serial.println("=========== AVA AI ===========");
-    Serial.println("[AI] Gemini request received.");
+    Serial.println("[AI] OpenRouter request received.");
 
-    if (String(AVA_GEMINI_API_KEY).length() == 0)
+    if (String(AVA_OPENROUTER_API_KEY).length() == 0)
     {
-        Serial.println("[AI] ERROR: Gemini API key is not configured.");
+        Serial.println("[AI] ERROR: OpenRouter API key is not configured.");
         Serial.println("[AI] Create include/Ava_Secrets.h locally.");
         Serial.println("==============================");
         return false;
@@ -193,8 +193,8 @@ bool avaAIPrepare()
     aiReady = true;
 
     Serial.print("[AI] Model: ");
-    Serial.println(AVA_GEMINI_MODEL);
-    Serial.println("[AI] Gemini is ready.");
+    Serial.println(AVA_OPENROUTER_MODEL);
+    Serial.println("[AI] OpenRouter is ready.");
     Serial.println("==============================");
 
     return true;
@@ -224,7 +224,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     if (!networkLock.isLocked())
     {
-        Serial.println("[AI] ERROR: Could not acquire network lock for Gemini.");
+        Serial.println("[AI] ERROR: Could not acquire network lock for OpenRouter.");
         aiReady = false;
         return false;
     }
@@ -234,10 +234,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     HTTPClient http;
 
-    String url =
-        "https://generativelanguage.googleapis.com/v1beta/models/" +
-        String(AVA_GEMINI_MODEL) +
-        ":generateContent";
+    const String url = "https://openrouter.ai/api/v1/chat/completions";
 
     if (!http.begin(client, url))
     {
@@ -248,7 +245,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     http.setTimeout(30000);
     http.addHeader("Content-Type", "application/json");
-    http.addHeader("x-goog-api-key", AVA_GEMINI_API_KEY);
+    http.addHeader("Authorization", String("Bearer ") + AVA_OPENROUTER_API_KEY);
 
     const String systemInstruction =
         "You are AVA, a friendly personal robot created by Ali. "
@@ -261,20 +258,20 @@ bool avaAIAsk(const String& question, String& answer)
 
     body =
         "{"
-        "\"system_instruction\":{"
-            "\"parts\":[{"
-                "\"text\":\"" + avaAIJsonEscape(systemInstruction) + "\""
-            "}]"
-        "},"
-        "\"contents\":[{"
-            "\"role\":\"user\","
-            "\"parts\":[{"
-                "\"text\":\"" + avaAIJsonEscape(question) + "\""
-            "}]"
-        "}]"
+        "\"model\":\"" + avaAIJsonEscape(AVA_OPENROUTER_MODEL) + "\","
+        "\"messages\":["
+            "{"
+                "\"role\":\"system\","
+                "\"content\":\"" + avaAIJsonEscape(systemInstruction) + "\""
+            "},"
+            "{"
+                "\"role\":\"user\","
+                "\"content\":\"" + avaAIJsonEscape(question) + "\""
+            "}"
+        "]"
         "}";
 
-    Serial.println("[AI] Sending request to Gemini...");
+    Serial.println("[AI] Sending request to OpenRouter...");
     Serial.print("[AI] Question: ");
     Serial.println(question);
 
@@ -296,13 +293,13 @@ bool avaAIAsk(const String& question, String& answer)
 
     if (httpCode < 200 || httpCode >= 300)
     {
-        Serial.println("[AI] Gemini request failed.");
+        Serial.println("[AI] OpenRouter request failed.");
 
         const String errorMessage = avaAIExtractError(payload);
 
         if (errorMessage.length() > 0)
         {
-            Serial.print("[AI] Gemini error: ");
+            Serial.print("[AI] OpenRouter error: ");
             Serial.println(errorMessage);
         }
 
@@ -315,14 +312,14 @@ bool avaAIAsk(const String& question, String& answer)
 
     if (!avaAIExtractText(payload, answer))
     {
-        Serial.println("[AI] ERROR: Could not extract Gemini response text.");
+        Serial.println("[AI] ERROR: Could not extract OpenRouter response text.");
         Serial.println("[AI] Raw response:");
         Serial.println(payload);
         aiReady = false;
         return false;
     }
 
-    Serial.println("[AI] Gemini response received.");
+    Serial.println("[AI] OpenRouter response received.");
     Serial.print("[AI] Answer: ");
     Serial.println(answer);
 
