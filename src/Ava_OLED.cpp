@@ -704,20 +704,16 @@ static void avaOLEDRenderMessage()
     const bool rtl =
         avaPersianHasRTL(avaOLEDMessageText);
 
-    // Persian shaping/font handling is used only for RTL AI messages.
-    const String shapedText =
-        rtl ? avaPersianShape(avaOLEDMessageText) : avaOLEDMessageText;
-
+    // Keep the original UTF-8 text for U8g2.
+    // Manual presentation-form shaping caused corrupted Persian glyphs.
     avaDisplay.setFont(
         u8g2_font_unifont_t_arabic
     );
 
     avaDisplay.setDrawColor(1);
-    avaDisplay.setFontDirection(
-        rtl ? 2 : 0
-    );
+    avaDisplay.setFontDirection(0);
 
-    String remaining = shapedText;
+    String remaining = avaOLEDMessageText;
     int16_t y = 10;
 
     while (remaining.length() > 0 && y <= 58)
@@ -787,9 +783,7 @@ static void avaOLEDRenderMessage()
             avaDisplay.getUTF8Width(line.c_str());
 
         const int16_t x =
-            rtl
-                ? (AVA_OLED_WIDTH + width) / 2
-                : (AVA_OLED_WIDTH - width) / 2;
+            (AVA_OLED_WIDTH - width) / 2;
 
         avaDisplay.drawUTF8(
             x,
