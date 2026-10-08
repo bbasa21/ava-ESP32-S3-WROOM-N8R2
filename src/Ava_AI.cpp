@@ -365,6 +365,9 @@ bool avaAIAsk(const String& question, String& answer)
 
     const String payload = http.getString();
 
+    Serial.print("[AI] Content-Type: ");
+    Serial.println(http.header("Content-Type"));
+
     Serial.print("[AI] HTTP status: ");
     Serial.println(httpCode);
 
