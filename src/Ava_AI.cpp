@@ -261,6 +261,15 @@ bool avaAIAsk(const String& question, String& answer)
         return false;
     }
 
+    const String apiKey = avaAIGetApiKey();
+
+    if (apiKey.length() == 0)
+    {
+        Serial.println("[AI] ERROR: OpenRouter API key is not configured.");
+        aiReady = false;
+        return false;
+    }
+
     AvaNetworkLockGuard networkLock;
 
     if (!networkLock.isLocked())
