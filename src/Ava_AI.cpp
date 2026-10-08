@@ -320,6 +320,9 @@ bool avaAIAsk(const String& question, String& answer)
     http.setTimeout(30000);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + apiKey);
+    http.addHeader("HTTP-Referer", "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2");
+    http.addHeader("X-Title", "AVA Robot");
+    http.addHeader("User-Agent", "AVA-ESP32-S3");
 
     const String systemInstruction =
         "You are AVA, a friendly personal robot created by Ali. "
