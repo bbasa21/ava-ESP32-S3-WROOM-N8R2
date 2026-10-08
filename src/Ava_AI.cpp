@@ -357,6 +357,8 @@ bool avaAIAsk(const String& question, String& answer)
             Serial.println("[AI] OpenRouter error: No message field found.");
         }
 
+        Serial.print("[AI] OpenRouter response body length: ");
+        Serial.println(payload.length());
         Serial.println("[AI] OpenRouter response body:");
         Serial.println(payload);
 
