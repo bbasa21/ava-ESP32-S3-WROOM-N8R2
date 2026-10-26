@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include <mbedtls/sha256.h>
+#include <ArduinoJson.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_ota_ops.h>
@@ -44,47 +45,59 @@ static bool avaOTAIsValidSHA256(const String& value)
     return true;
 }
 
-static bool avaOTAExtractString(const String& json, const char* key, String& value)
+static bool avaOTAParseManifest(
+    const String& json,
+    uint32_t& build,
+    String& firmwareURL,
+    String& expectedSHA256
+)
 {
-    String searchKey = String("\"") + key + "\":";
-    int start = json.indexOf(searchKey);
-    if (start < 0) return false;
+    // Never parse an unbounded response into heap-backed JSON structures.
+    if (json.isEmpty() || json.length() > 2048)
+    {
+        Serial.println("[OTA] ERROR: Manifest size is invalid.");
+        return false;
+    }
 
-    start += searchKey.length();
-    while (start < json.length() &&
-           (json[start] == ' ' || json[start] == '\t' ||
-            json[start] == '\r' || json[start] == '\n'))
-        start++;
+    JsonDocument document;
+    DeserializationError error = deserializeJson(document, json);
+    if (error)
+    {
+        Serial.print("[OTA] ERROR: Manifest JSON parse failed: ");
+        Serial.println(error.c_str());
+        return false;
+    }
 
-    if (start >= json.length() || json[start] != '\"') return false;
-    start++;
+    JsonVariantConst buildValue = document["build"];
+    JsonVariantConst urlValue = document["firmware_url"];
+    JsonVariantConst shaValue = document["sha256"];
 
-    int end = json.indexOf("\"", start);
-    if (end < 0) return false;
+    if (!buildValue.is<uint32_t>() ||
+        !urlValue.is<const char*>() ||
+        !shaValue.is<const char*>())
+    {
+        Serial.println("[OTA] ERROR: Manifest fields are missing or have wrong types.");
+        return false;
+    }
 
-    value = json.substring(start, end);
-    return true;
-}
+    build = buildValue.as<uint32_t>();
+    firmwareURL = urlValue.as<const char*>();
+    expectedSHA256 = shaValue.as<const char*>();
+    expectedSHA256.toLowerCase();
 
-static bool avaOTAExtractInt(const String& json, const char* key, uint32_t& value)
-{
-    String searchKey = String("\"") + key + "\":";
-    int start = json.indexOf(searchKey);
-    if (start < 0) return false;
+    if (firmwareURL.isEmpty() ||
+        !firmwareURL.startsWith("https://"))
+    {
+        Serial.println("[OTA] ERROR: Firmware URL must use HTTPS.");
+        return false;
+    }
 
-    start += searchKey.length();
-    while (start < json.length() &&
-           (json[start] == ' ' || json[start] == '\t' ||
-            json[start] == '\r' || json[start] == '\n'))
-        start++;
+    if (!avaOTAIsValidSHA256(expectedSHA256))
+    {
+        Serial.println("[OTA] ERROR: Invalid SHA-256 in manifest.");
+        return false;
+    }
 
-    int end = start;
-    while (end < json.length() && json[end] >= '0' && json[end] <= '9')
-        end++;
-
-    if (end == start) return false;
-
-    value = static_cast<uint32_t>(json.substring(start, end).toInt());
     return true;
 }
 
@@ -195,21 +208,12 @@ bool avaOTACheckForUpdate()
     String firmwareURL;
     String expectedSHA256;
 
-    if (!avaOTAExtractInt(manifest, "build", remoteBuild) ||
-        !avaOTAExtractString(manifest, "firmware_url", firmwareURL) ||
-        !avaOTAExtractString(manifest, "sha256", expectedSHA256))
+    if (!avaOTAParseManifest(
+            manifest,
+            remoteBuild,
+            firmwareURL,
+            expectedSHA256))
     {
-        Serial.println("[OTA] ERROR: Invalid manifest.");
-        return false;
-    }
-
-    expectedSHA256.toLowerCase();
-
-    if (!avaOTAIsValidSHA256(expectedSHA256))
-    {
-        Serial.println("[OTA] ERROR: Invalid SHA-256.");
-        Serial.print("[OTA] SHA length: ");
-        Serial.println(expectedSHA256.length());
         return false;
     }
 
