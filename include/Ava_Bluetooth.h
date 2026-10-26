@@ -12,6 +12,8 @@
 #include <esp_bt_device.h>
 
 #include "Ava_Eyes.h"
+#include "Ava_AI.h"
+#include "Ava_OLED.h"
 #include "Ava_Config.h"
 #include "Ava_TicTacToe.h"
 #include "AVA_GAMES.h"
@@ -1242,6 +1244,74 @@ inline void executeCommand(
 
 
     cmd.trim();
+
+    // AI commands must be handled before cmd is uppercased:
+    // API keys are case-sensitive and questions should keep their original text.
+    String commandPrefix = cmd;
+    int prefixSeparator = commandPrefix.indexOf('|');
+    if (prefixSeparator >= 0)
+    {
+        String prefix = commandPrefix.substring(0, prefixSeparator);
+        prefix.toLowerCase();
+
+        if (prefix == "apikey")
+        {
+            String apiKey = commandPrefix.substring(prefixSeparator + 1);
+            apiKey.trim();
+
+            if (avaAISetApiKey(apiKey))
+            {
+                Serial.println("[AI] OpenRouter API key saved securely in NVS.");
+                sendEvent("APIKEY_SAVED");
+                sendData("APIKEY_SAVED");
+            }
+            else
+            {
+                Serial.println("[AI] ERROR: Could not save OpenRouter API key.");
+                sendEvent("APIKEY_SAVE_FAILED");
+                sendData("APIKEY_SAVE_FAILED");
+            }
+
+            return;
+        }
+
+        if (prefix == "ask" || prefix == "gemini")
+        {
+            String question = commandPrefix.substring(prefixSeparator + 1);
+            question.trim();
+
+            if (question.length() == 0)
+            {
+                sendEvent("AI_REQUEST_REJECTED|EMPTY");
+                sendData("AI_REQUEST_REJECTED|EMPTY");
+                return;
+            }
+
+            Serial.println("[AI] BLE question received.");
+            avaApplyEmotion(AVA_EMOTION_FOCUSED);
+            avaOLEDShowMessage("THINKING...");
+
+            String answer;
+            if (avaAIAsk(question, answer))
+            {
+                avaApplyEmotion(AVA_EMOTION_HAPPY);
+                avaOLEDShowMessage(answer);
+                sendData("AI_ANSWER|" + answer);
+                sendEvent("AI_ANSWER_READY");
+                Serial.println("[AI] BLE answer delivered.");
+            }
+            else
+            {
+                avaApplyEmotion(AVA_EMOTION_SAD_REFERENCE);
+                avaOLEDShowMessage("AI ERROR");
+                sendData("AI_REQUEST_FAILED");
+                sendEvent("AI_REQUEST_FAILED");
+                Serial.println("[AI] BLE request failed.");
+            }
+
+            return;
+        }
+    }
 
     // "debug eyes" is intentionally lowercase and case-sensitive.
     if (cmd == "debug eyes")
