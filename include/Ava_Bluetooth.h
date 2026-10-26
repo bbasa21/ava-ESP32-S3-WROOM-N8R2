@@ -12,6 +12,7 @@
 
 #include "Ava_Eyes.h"
 #include "Ava_AI.h"
+#include "Ava_QnA.h"
 #include "Ava_OLED.h"
 #include "Ava_Config.h"
 #include "Ava_TicTacToe.h"
@@ -1274,6 +1275,40 @@ inline void executeCommand(
             return;
         }
 
+        if (prefix == "qna" || prefix == "question")
+        {
+            String question = commandPrefix.substring(prefixSeparator + 1);
+            question.trim();
+
+            if (question.length() == 0)
+            {
+                sendEvent("QNA_REQUEST_REJECTED|EMPTY");
+                sendData("QNA_REQUEST_REJECTED|EMPTY");
+                return;
+            }
+
+            String answer;
+            if (avaQnAAnswer(question, answer))
+            {
+                avaApplyEmotion(AVA_EMOTION_HAPPY);
+                avaOLEDShowMessage(answer);
+                sendData("AI_ANSWER|" + answer);
+                sendEvent("AI_ANSWER_READY");
+                Serial.print("[QNA] BLE offline answer: ");
+                Serial.println(answer);
+            }
+            else
+            {
+                avaApplyEmotion(AVA_EMOTION_NORMAL);
+                avaOLEDShowMessage("NO OFFLINE ANSWER");
+                sendData("QNA_NOT_FOUND");
+                sendEvent("QNA_NOT_FOUND");
+                Serial.println("[QNA] No offline answer matched the BLE question.");
+            }
+
+            return;
+        }
+
         if (prefix == "ask" || prefix == "gemini")
         {
             String question = commandPrefix.substring(prefixSeparator + 1);
@@ -1286,11 +1321,25 @@ inline void executeCommand(
                 return;
             }
 
+            String answer;
+
+            // Try the built-in offline Q&A first so known questions still work
+            // when Wi-Fi or Internet is unavailable.
+            if (avaQnAAnswer(question, answer))
+            {
+                avaApplyEmotion(AVA_EMOTION_HAPPY);
+                avaOLEDShowMessage(answer);
+                sendData("AI_ANSWER|" + answer);
+                sendEvent("AI_ANSWER_READY");
+                Serial.print("[QNA] BLE offline answer: ");
+                Serial.println(answer);
+                return;
+            }
+
             Serial.println("[AI] BLE question received.");
             avaApplyEmotion(AVA_EMOTION_FOCUSED);
             avaOLEDShowMessage("THINKING...");
 
-            String answer;
             if (avaAIAsk(question, answer))
             {
                 avaApplyEmotion(AVA_EMOTION_HAPPY);
