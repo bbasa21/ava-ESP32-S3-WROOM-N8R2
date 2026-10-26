@@ -1855,11 +1855,11 @@ public:
         }
 
 
-        std::string value =
+        auto value =
             characteristic->getValue();
 
 
-        if (value.empty())
+        if (value.length() == 0)
         {
             return;
         }
@@ -1933,11 +1933,11 @@ public:
         }
 
 
-        std::string value =
+        auto value =
             characteristic->getValue();
 
 
-        if (value.empty())
+        if (value.length() == 0)
         {
             return;
         }
