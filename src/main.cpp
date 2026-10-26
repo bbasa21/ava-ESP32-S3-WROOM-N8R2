@@ -127,7 +127,7 @@ static void avaPettingReactionTick()
   const uint32_t now = millis();
   const bool touched = avaTouchActiveSensorCount() > 0;
 
-  if (touched && !avaPettingTracking && avaPettingPhase == 0)
+  if (touched && !avaPettingTracking && !avaPettingTriggered && avaPettingPhase == 0)
   {
     avaPettingTracking = true;
     avaPettingPressStartMs = now;
@@ -143,6 +143,7 @@ static void avaPettingReactionTick()
       now - avaPettingPressStartMs >= 1600UL)
   {
     avaPettingTriggered = true;
+    avaPettingTracking = false;
     avaPettingPhase = 1;
     avaPettingReactionStartMs = now;
     setGaze(GAZE_CENTER);
@@ -162,16 +163,15 @@ static void avaPettingReactionTick()
            now - avaPettingReactionStartMs >= 2200UL)
   {
     avaPettingPhase = 0;
-    avaPettingTriggered = false;
     avaApplyEmotion(AVA_EMOTION_NORMAL);
     avaEnableNaturalGaze();
     Serial.println("[PETTING] Reaction finished.");
   }
 
   // A short touch should not trigger the petting animation.
-  if (!touched && !avaPettingTracking && !avaPettingTriggered &&
-      avaPettingPhase == 0)
+  if (!touched && !avaPettingTracking && avaPettingPhase == 0)
   {
+    avaPettingTriggered = false;
     avaPettingPressStartMs = 0;
   }
 }
