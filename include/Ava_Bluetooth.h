@@ -9,7 +9,6 @@
 #include <BLEAdvertising.h>
 
 #include <esp_mac.h>
-#include <esp_bt_device.h>
 
 #include "Ava_Eyes.h"
 #include "Ava_AI.h"
