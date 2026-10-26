@@ -1974,20 +1974,14 @@ public:
         }
 
 
-        std::string value =
-            characteristic->getValue();
+        String value = characteristic->getValue();
 
-
-        if (value.empty())
+        if (value.length() == 0)
         {
             return;
         }
 
-
-        String command =
-            String(
-                value.c_str()
-            );
+        String command = value;
 
 
         command.trim();
@@ -2052,20 +2046,14 @@ public:
         }
 
 
-        std::string value =
-            characteristic->getValue();
+        String value = characteristic->getValue();
 
-
-        if (value.empty())
+        if (value.length() == 0)
         {
             return;
         }
 
-
-        String data =
-            String(
-                value.c_str()
-            );
+        String data = value;
 
 
         data.trim();
