@@ -111,6 +111,71 @@ Mood currentMood = MOOD_CALM;
 unsigned long lastInteractionTime = 0;
 unsigned long bootStartTime = 0;
 
+// ================================================
+// GENTLE PETTING REACTION
+// Hold any touch sensor for 1.6 seconds:
+// HAPPY -> SLEEPY -> NORMAL.
+// ================================================
+static bool avaPettingTracking = false;
+static bool avaPettingTriggered = false;
+static uint32_t avaPettingPressStartMs = 0;
+static uint32_t avaPettingReactionStartMs = 0;
+static uint8_t avaPettingPhase = 0;
+
+static void avaPettingReactionTick()
+{
+  const uint32_t now = millis();
+  const bool touched = avaTouchActiveSensorCount() > 0;
+
+  if (touched && !avaPettingTracking && avaPettingPhase == 0)
+  {
+    avaPettingTracking = true;
+    avaPettingPressStartMs = now;
+  }
+
+  if (!touched && avaPettingTracking)
+  {
+    avaPettingTracking = false;
+  }
+
+  if (avaPettingTracking &&
+      !avaPettingTriggered &&
+      now - avaPettingPressStartMs >= 1600UL)
+  {
+    avaPettingTriggered = true;
+    avaPettingPhase = 1;
+    avaPettingReactionStartMs = now;
+    setGaze(GAZE_CENTER);
+    avaApplyEmotion(AVA_EMOTION_HAPPY);
+    Serial.println("[PETTING] Happy reaction started.");
+  }
+
+  if (avaPettingPhase == 1 &&
+      now - avaPettingReactionStartMs >= 650UL)
+  {
+    avaPettingPhase = 2;
+    avaPettingReactionStartMs = now;
+    avaApplyEmotion(AVA_EMOTION_SLEEPY);
+    Serial.println("[PETTING] Relaxing and closing eyes.");
+  }
+  else if (avaPettingPhase == 2 &&
+           now - avaPettingReactionStartMs >= 2200UL)
+  {
+    avaPettingPhase = 0;
+    avaPettingTriggered = false;
+    avaApplyEmotion(AVA_EMOTION_NORMAL);
+    avaEnableNaturalGaze();
+    Serial.println("[PETTING] Reaction finished.");
+  }
+
+  // A short touch should not trigger the petting animation.
+  if (!touched && !avaPettingTracking && !avaPettingTriggered &&
+      avaPettingPhase == 0)
+  {
+    avaPettingPressStartMs = 0;
+  }
+}
+
 String incomingCommand = "";
 
 // ================================
@@ -214,6 +279,7 @@ void loop() {
   // Update raw touch state first so all higher-level logic sees
   // the current physical touch state.
   avaTouchUpdate();
+  avaPettingReactionTick();
 
   if (!avaDecision().targetAvailable) {
     avaNaturalGazeTick();
