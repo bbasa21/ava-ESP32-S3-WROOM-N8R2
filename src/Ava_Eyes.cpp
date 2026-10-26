@@ -60,7 +60,9 @@ void avaEnableDebugEyes()
     }
 
     avaFace.RandomBehavior = true;
-    avaFace.RandomLook = true;
+    // AVA's own natural-gaze controller is the sole gaze authority.
+    // Disable LookAssistant's independent random target to prevent overrides.
+    avaFace.RandomLook = false;
     avaFace.RandomBlink = true;
 
     avaEnableNaturalGaze();
