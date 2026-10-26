@@ -38,12 +38,12 @@ bool isHexSha256(const String& s) {
 }
 
 String digestToHex(const uint8_t digest[32]) {
-  static const char HEX[] = "0123456789abcdef";
+  static const char kHexDigits[] = "0123456789abcdef";
   String out;
   out.reserve(64);
   for (size_t i = 0; i < 32; ++i) {
-    out += HEX[digest[i] >> 4];
-    out += HEX[digest[i] & 0x0f];
+    out += kHexDigits[digest[i] >> 4];
+    out += kHexDigits[digest[i] & 0x0f];
   }
   return out;
 }
