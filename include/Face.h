@@ -34,7 +34,7 @@ public:
     FaceBehavior Behavior;
 
     bool RandomBehavior = true;
-    bool RandomLook = true;
+    bool RandomLook = false;
     bool RandomBlink = true;
 
     void Update();
