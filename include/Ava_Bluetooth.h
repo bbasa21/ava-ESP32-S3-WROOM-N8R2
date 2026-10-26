@@ -2,6 +2,7 @@
 #define AVA_BLUETOOTH_H
 
 #include <Arduino.h>
+#include <string>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -1974,7 +1975,8 @@ public:
         }
 
 
-        String value = characteristic->getValue();
+        const std::string rawValue = characteristic->getValue();
+        String value(rawValue.c_str());
 
         if (value.length() == 0)
         {
@@ -2046,7 +2048,8 @@ public:
         }
 
 
-        String value = characteristic->getValue();
+        const std::string rawValue = characteristic->getValue();
+        String value(rawValue.c_str());
 
         if (value.length() == 0)
         {
