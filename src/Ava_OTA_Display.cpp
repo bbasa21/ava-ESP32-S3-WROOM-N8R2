@@ -15,13 +15,6 @@ static volatile bool avaOTAUIActive = false;
 static volatile int avaOTAUIProgress = 0;
 static volatile AvaOTAUIStatus avaOTAUIState = AVA_OTA_UI_IDLE;
 
-// ==================================================
-// OTA UI CONTROL
-// These functions are called from the dedicated OTA task.
-// They only update small scalar state; OLED drawing stays
-// inside the normal Arduino loopTask.
-// ==================================================
-
 void avaOTAUIBegin()
 {
     avaOTAUIProgress = 0;
@@ -31,16 +24,8 @@ void avaOTAUIBegin()
 
 void avaOTAUISetProgress(int percent)
 {
-    if (percent < 0)
-    {
-        percent = 0;
-    }
-
-    if (percent > 100)
-    {
-        percent = 100;
-    }
-
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
     avaOTAUIProgress = percent;
 }
 
@@ -62,7 +47,10 @@ void avaOTAUIEnd()
 }
 
 // ==================================================
-// RENDER
+// CYBERPUNK HUD RENDER
+// 128x64 monochrome SSD1309. AVA's normal face is
+// represented by a small custom eye icon in the header.
+// No full-screen animation or extra heap allocation.
 // ==================================================
 
 static void avaOTAUIRender()
@@ -73,130 +61,115 @@ static void avaOTAUIRender()
         return;
     }
 
-    int progress = avaOTAUIProgress;
-    AvaOTAUIStatus status = avaOTAUIState;
+    const int progress = avaOTAUIProgress;
+    const AvaOTAUIStatus status = avaOTAUIState;
 
-    const char* statusText = "UPDATING...";
-    
+    const char* statusText = "DOWNLOADING";
     switch (status)
     {
-        case AVA_OTA_UI_VERIFYING:
-            statusText = "VERIFYING...";
-            break;
-
-        case AVA_OTA_UI_INSTALLING:
-            statusText = "INSTALLING...";
-            break;
-
-        case AVA_OTA_UI_RESTARTING:
-            statusText = "RESTARTING...";
-            break;
-
-        case AVA_OTA_UI_ERROR:
-            statusText = "UPDATE ERROR";
-            break;
-
+        case AVA_OTA_UI_VERIFYING:  statusText = "VERIFYING";  break;
+        case AVA_OTA_UI_INSTALLING: statusText = "INSTALLING"; break;
+        case AVA_OTA_UI_RESTARTING: statusText = "RESTARTING"; break;
+        case AVA_OTA_UI_ERROR:      statusText = "UPDATE ERROR"; break;
         case AVA_OTA_UI_UPDATING:
-        default:
-            statusText = "UPDATING...";
-            break;
+        case AVA_OTA_UI_IDLE:
+        default:                   statusText = "DOWNLOADING"; break;
     }
 
     AvaDisplayAdapter::beginFrame();
-
     avaDisplay.setDrawColor(1);
 
-    // --------------------------------------------------
-    // AVA
-    // --------------------------------------------------
+    // Header frame and angled cyber-HUD corners.
+    avaDisplay.drawHLine(2, 1, 124);
+    avaDisplay.drawHLine(2, 15, 124);
+    avaDisplay.drawVLine(2, 1, 5);
+    avaDisplay.drawVLine(125, 1, 5);
+    avaDisplay.drawVLine(2, 11, 5);
+    avaDisplay.drawVLine(125, 11, 5);
 
-    avaDisplay.setFont(u8g2_font_7x14B_tf);
+    // Tiny AVA face: two eyes inside a compact HUD frame.
+    avaDisplay.drawFrame(6, 3, 19, 10);
+    avaDisplay.drawBox(10, 6, 3, 4);
+    avaDisplay.drawBox(18, 6, 3, 4);
+    avaDisplay.drawHLine(14, 8, 3);
 
-    const char* title = "AVA";
-    int16_t titleWidth = avaDisplay.getStrWidth(title);
-
-    avaDisplay.drawStr(
-        (128 - titleWidth) / 2,
-        13,
-        title
-    );
-
-    // --------------------------------------------------
-    // STATUS
-    // --------------------------------------------------
-
+    // Title and a tiny moving scan marker.
     avaDisplay.setFont(u8g2_font_6x10_tf);
+    avaDisplay.drawStr(31, 10, "AVA // OTA");
+    const int scanX = 91 + (static_cast<int>((millis() / 90UL) % 6UL) * 5);
+    avaDisplay.drawVLine(scanX, 4, 7);
+    avaDisplay.drawPixel(scanX + 1, 3);
 
-    int16_t statusWidth =
-        avaDisplay.getStrWidth(statusText);
-
-    avaDisplay.drawStr(
-        (128 - statusWidth) / 2,
-        27,
-        statusText
-    );
-
-    // --------------------------------------------------
-    // PROGRESS BAR
-    // --------------------------------------------------
-
-    const int16_t barX = 12;
-    const int16_t barY = 35;
-    const int16_t barWidth = 104;
-    const int16_t barHeight = 9;
-
-    avaDisplay.drawFrame(
-        barX,
-        barY,
-        barWidth,
-        barHeight
-    );
-
-    int16_t innerWidth =
-        static_cast<int16_t>(
-            ((barWidth - 2) * progress) / 100
-        );
-
-    if (innerWidth > 0)
+    // Status line with a small technical indicator.
+    if (status == AVA_OTA_UI_ERROR)
     {
-        avaDisplay.drawBox(
-            barX + 1,
-            barY + 1,
-            innerWidth,
-            barHeight - 2
-        );
+        avaDisplay.drawFrame(7, 20, 7, 7);
+        avaDisplay.drawLine(8, 21, 12, 25);
+        avaDisplay.drawLine(12, 21, 8, 25);
+    }
+    else
+    {
+        avaDisplay.drawFrame(7, 20, 7, 7);
+        avaDisplay.drawBox(9, 22, 3, 3);
     }
 
-    // --------------------------------------------------
-    // PERCENT
-    // --------------------------------------------------
+    avaDisplay.setFont(u8g2_font_6x10_tf);
+    avaDisplay.drawStr(19, 27, statusText);
 
+    // Progress percentage at the right edge.
     char percentText[8];
+    snprintf(percentText, sizeof(percentText), "%d%%", progress);
+    const int16_t percentWidth = avaDisplay.getStrWidth(percentText);
+    avaDisplay.drawStr(121 - percentWidth, 27, percentText);
 
-    snprintf(
-        percentText,
-        sizeof(percentText),
-        "%d%%",
-        progress
-    );
+    // Segmented progress bar with a crisp outline.
+    const int16_t barX = 7;
+    const int16_t barY = 34;
+    const int16_t barWidth = 114;
+    const int16_t barHeight = 10;
+    avaDisplay.drawFrame(barX, barY, barWidth, barHeight);
 
-    avaDisplay.setFont(u8g2_font_7x14B_tf);
+    const int16_t innerWidth =
+        static_cast<int16_t>(((barWidth - 2) * progress) / 100);
+    if (innerWidth > 0)
+    {
+        avaDisplay.drawBox(barX + 1, barY + 1, innerWidth, barHeight - 2);
+    }
 
-    int16_t percentWidth =
-        avaDisplay.getStrWidth(percentText);
+    // Small calibration ticks under the bar.
+    for (int16_t x = barX; x <= barX + barWidth; x += 8)
+    {
+        avaDisplay.drawVLine(x, 45, 2);
+    }
 
-    avaDisplay.drawStr(
-        (128 - percentWidth) / 2,
-        57,
-        percentText
-    );
+    // Footer is intentionally short and readable.
+    avaDisplay.setFont(u8g2_font_5x8_tf);
+    if (status == AVA_OTA_UI_ERROR)
+    {
+        avaDisplay.drawStr(7, 60, "FAILED - CHECK LOG");
+    }
+    else if (status == AVA_OTA_UI_RESTARTING)
+    {
+        avaDisplay.drawStr(7, 60, "DONE - REBOOTING");
+    }
+    else if (status == AVA_OTA_UI_VERIFYING)
+    {
+        avaDisplay.drawStr(7, 60, "CHECKING IMAGE");
+    }
+    else if (status == AVA_OTA_UI_INSTALLING)
+    {
+        avaDisplay.drawStr(7, 60, "WRITING FLASH");
+    }
+    else
+    {
+        avaDisplay.drawStr(7, 60, "SECURE LINK  /  OTA");
+    }
+
+    // A subtle lower HUD rail.
+    avaDisplay.drawHLine(7, 63, 114);
 
     AvaDisplayAdapter::endFrame();
 }
-
-// ==================================================
-// OTA UI TICK
-// ==================================================
 
 void avaOTAUIUpdate()
 {
