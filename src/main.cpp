@@ -255,6 +255,8 @@ void bootAva() {
 
   renderEyes(EYES_CALM);
   setGaze(GAZE_CENTER);
+  // Center the eyes at boot, then release the manual lock so natural gaze can run.
+  avaEnableNaturalGaze();
 
   currentState = STATE_IDLE;
   setMood(MOOD_CALM);
