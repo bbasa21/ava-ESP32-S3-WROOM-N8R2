@@ -87,9 +87,9 @@ static bool avaAIExtractText(const String& payload, String& answer)
 
         while (valueStart < payload.length() &&
                (payload[valueStart] == ' ' ||
-                payload[valueStart] == '\\t' ||
-                payload[valueStart] == '\\r' ||
-                payload[valueStart] == '\\n'))
+                payload[valueStart] == '\t' ||
+                payload[valueStart] == '\r' ||
+                payload[valueStart] == '\n'))
         {
             ++valueStart;
         }
@@ -114,8 +114,8 @@ static bool avaAIExtractText(const String& payload, String& answer)
                         case 'r': decoded += '\r'; break;
                         case 't': decoded += '\t'; break;
                         case '/': decoded += '/'; break;
-                        case 'b': decoded += '\\b'; break;
-                        case 'f': decoded += '\\f'; break;
+                        case 'b': decoded += '\b'; break;
+                        case 'f': decoded += '\f'; break;
                         default: decoded += c; break;
                     }
 
