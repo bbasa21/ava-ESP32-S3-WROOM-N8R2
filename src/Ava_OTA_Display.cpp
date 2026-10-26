@@ -4,8 +4,10 @@
 
 #include "Ava_DisplayAdapter.h"
 #include "Ava_OLED.h"
+#include "Ava_Eyes.h"
 
 extern U8G2_SSD1309_128X64_NONAME0_F_4W_SW_SPI avaDisplay;
+extern Face avaFace;
 
 // ==================================================
 // OTA UI STATE
@@ -47,10 +49,11 @@ void avaOTAUIEnd()
 }
 
 // ==================================================
-// CYBERPUNK HUD RENDER
-// 128x64 monochrome SSD1309. AVA's normal face is
-// represented by a small custom eye icon in the header.
-// No full-screen animation or extra heap allocation.
+// OTA RENDER — REAL AVA FACE + COMPACT UPDATE PANEL
+// 128x64 SSD1309:
+//   - The existing animated AVA eyes stay at the top.
+//   - Update status and a slim progress line sit below.
+//   - No face frame, tile grid, or decorative boxes.
 // ==================================================
 
 static void avaOTAUIRender()
@@ -65,108 +68,76 @@ static void avaOTAUIRender()
     const AvaOTAUIStatus status = avaOTAUIState;
 
     const char* statusText = "DOWNLOADING";
+    const char* footerText = "PLEASE WAIT";
+
     switch (status)
     {
-        case AVA_OTA_UI_VERIFYING:  statusText = "VERIFYING";  break;
-        case AVA_OTA_UI_INSTALLING: statusText = "INSTALLING"; break;
-        case AVA_OTA_UI_RESTARTING: statusText = "RESTARTING"; break;
-        case AVA_OTA_UI_ERROR:      statusText = "UPDATE ERROR"; break;
+        case AVA_OTA_UI_VERIFYING:
+            statusText = "VERIFYING";
+            footerText = "CHECKING IMAGE";
+            break;
+
+        case AVA_OTA_UI_INSTALLING:
+            statusText = "INSTALLING";
+            footerText = "WRITING FIRMWARE";
+            break;
+
+        case AVA_OTA_UI_RESTARTING:
+            statusText = "RESTARTING";
+            footerText = "AVA WILL REBOOT";
+            break;
+
+        case AVA_OTA_UI_ERROR:
+            statusText = "UPDATE ERROR";
+            footerText = "CHECK SERIAL LOG";
+            break;
+
         case AVA_OTA_UI_UPDATING:
         case AVA_OTA_UI_IDLE:
-        default:                   statusText = "DOWNLOADING"; break;
+        default:
+            statusText = "DOWNLOADING";
+            footerText = "PLEASE WAIT";
+            break;
     }
 
     AvaDisplayAdapter::beginFrame();
+    avaDisplay.clearBuffer();
     avaDisplay.setDrawColor(1);
 
-    // Header frame and angled cyber-HUD corners.
-    avaDisplay.drawHLine(2, 1, 124);
-    avaDisplay.drawHLine(2, 15, 124);
-    avaDisplay.drawVLine(2, 1, 5);
-    avaDisplay.drawVLine(125, 1, 5);
-    avaDisplay.drawVLine(2, 11, 5);
-    avaDisplay.drawVLine(125, 11, 5);
+    // Render AVA's actual Face/Eye engine at the top of the display.
+    // Temporarily move only the face center; restore it immediately so
+    // the normal OLED face layout remains unchanged after OTA ends.
+    const uint16_t previousCenterY = avaFace.CenterY;
+    avaFace.CenterY = 15;
+    avaFace.Draw();
+    avaFace.CenterY = previousCenterY;
 
-    // Tiny AVA face: two eyes inside a compact HUD frame.
-    avaDisplay.drawFrame(6, 3, 19, 10);
-    avaDisplay.drawBox(10, 6, 3, 4);
-    avaDisplay.drawBox(18, 6, 3, 4);
-    avaDisplay.drawHLine(14, 8, 3);
+    // One clean divider separates AVA's eyes from the update panel.
+    avaDisplay.drawHLine(5, 32, 118);
 
-    // Title and a tiny moving scan marker.
+    // Status and percentage share one readable line.
     avaDisplay.setFont(u8g2_font_6x10_tf);
-    avaDisplay.drawStr(31, 10, "AVA // OTA");
-    const int scanX = 91 + (static_cast<int>((millis() / 90UL) % 6UL) * 5);
-    avaDisplay.drawVLine(scanX, 4, 7);
-    avaDisplay.drawPixel(scanX + 1, 3);
+    avaDisplay.drawStr(5, 44, statusText);
 
-    // Status line with a small technical indicator.
-    if (status == AVA_OTA_UI_ERROR)
-    {
-        avaDisplay.drawFrame(7, 20, 7, 7);
-        avaDisplay.drawLine(8, 21, 12, 25);
-        avaDisplay.drawLine(12, 21, 8, 25);
-    }
-    else
-    {
-        avaDisplay.drawFrame(7, 20, 7, 7);
-        avaDisplay.drawBox(9, 22, 3, 3);
-    }
-
-    avaDisplay.setFont(u8g2_font_6x10_tf);
-    avaDisplay.drawStr(19, 27, statusText);
-
-    // Progress percentage at the right edge.
     char percentText[8];
     snprintf(percentText, sizeof(percentText), "%d%%", progress);
     const int16_t percentWidth = avaDisplay.getStrWidth(percentText);
-    avaDisplay.drawStr(121 - percentWidth, 27, percentText);
+    avaDisplay.drawStr(123 - percentWidth, 44, percentText);
 
-    // Segmented progress bar with a crisp outline.
-    const int16_t barX = 7;
-    const int16_t barY = 34;
-    const int16_t barWidth = 114;
-    const int16_t barHeight = 10;
-    avaDisplay.drawFrame(barX, barY, barWidth, barHeight);
-
-    const int16_t innerWidth =
-        static_cast<int16_t>(((barWidth - 2) * progress) / 100);
-    if (innerWidth > 0)
+    // Slim continuous progress indicator — no segmented squares or frame.
+    const int16_t barX = 5;
+    const int16_t barWidth = 118;
+    avaDisplay.drawHLine(barX, 51, barWidth);
+    const int16_t progressWidth =
+        static_cast<int16_t>((barWidth * progress) / 100);
+    if (progressWidth > 0)
     {
-        avaDisplay.drawBox(barX + 1, barY + 1, innerWidth, barHeight - 2);
+        avaDisplay.drawHLine(barX, 51, progressWidth);
+        avaDisplay.drawVLine(barX + progressWidth - 1, 48, 6);
     }
 
-    // Small calibration ticks under the bar.
-    for (int16_t x = barX; x <= barX + barWidth; x += 8)
-    {
-        avaDisplay.drawVLine(x, 45, 2);
-    }
-
-    // Footer is intentionally short and readable.
     avaDisplay.setFont(u8g2_font_5x8_tf);
-    if (status == AVA_OTA_UI_ERROR)
-    {
-        avaDisplay.drawStr(7, 60, "FAILED - CHECK LOG");
-    }
-    else if (status == AVA_OTA_UI_RESTARTING)
-    {
-        avaDisplay.drawStr(7, 60, "DONE - REBOOTING");
-    }
-    else if (status == AVA_OTA_UI_VERIFYING)
-    {
-        avaDisplay.drawStr(7, 60, "CHECKING IMAGE");
-    }
-    else if (status == AVA_OTA_UI_INSTALLING)
-    {
-        avaDisplay.drawStr(7, 60, "WRITING FLASH");
-    }
-    else
-    {
-        avaDisplay.drawStr(7, 60, "SECURE LINK  /  OTA");
-    }
-
-    // A subtle lower HUD rail.
-    avaDisplay.drawHLine(7, 63, 114);
+    avaDisplay.drawStr(5, 62, footerText);
 
     AvaDisplayAdapter::endFrame();
 }
