@@ -7,7 +7,6 @@
 #include "Ava_Eyes.h"
 
 extern U8G2_SSD1309_128X64_NONAME0_F_4W_SW_SPI avaDisplay;
-extern Face avaFace;
 
 // ==================================================
 // OTA UI STATE
@@ -49,11 +48,10 @@ void avaOTAUIEnd()
 }
 
 // ==================================================
-// OTA RENDER — REAL AVA FACE + COMPACT UPDATE PANEL
+// OTA RENDER — AVA'S REAL ANIMATED EYES + UPDATE PANEL
 // 128x64 SSD1309:
-//   - The existing animated AVA eyes stay at the top.
-//   - Update status and a slim progress line sit below.
-//   - No face frame, tile grid, or decorative boxes.
+//   - Existing animated eyes at the top, without a face frame.
+//   - Update status and a slim progress line below.
 // ==================================================
 
 static void avaOTAUIRender()
@@ -104,18 +102,23 @@ static void avaOTAUIRender()
     avaDisplay.clearBuffer();
     avaDisplay.setDrawColor(1);
 
-    // Render AVA's actual Face/Eye engine at the top of the display.
-    // Temporarily move only the face center; restore it immediately so
-    // the normal OLED face layout remains unchanged after OTA ends.
-    const uint16_t previousCenterY = avaFace.CenterY;
-    avaFace.CenterY = 15;
-    avaFace.Draw();
-    avaFace.CenterY = previousCenterY;
+    // Use the actual animated eyes used by the normal AVA face.
+    // Move their centers up temporarily to make room for OTA information.
+    const int16_t leftPreviousY = avaLeftEye.CenterY;
+    const int16_t rightPreviousY = avaRightEye.CenterY;
+    avaLeftEye.CenterY = 15;
+    avaRightEye.CenterY = 15;
 
-    // One clean divider separates AVA's eyes from the update panel.
+    avaLeftEye.Draw();
+    avaRightEye.Draw();
+
+    // Restore the normal face geometry immediately after rendering.
+    avaLeftEye.CenterY = leftPreviousY;
+    avaRightEye.CenterY = rightPreviousY;
+
+    // A single quiet divider; no boxes or segmented tiles.
     avaDisplay.drawHLine(5, 32, 118);
 
-    // Status and percentage share one readable line.
     avaDisplay.setFont(u8g2_font_6x10_tf);
     avaDisplay.drawStr(5, 44, statusText);
 
@@ -124,7 +127,7 @@ static void avaOTAUIRender()
     const int16_t percentWidth = avaDisplay.getStrWidth(percentText);
     avaDisplay.drawStr(123 - percentWidth, 44, percentText);
 
-    // Slim continuous progress indicator — no segmented squares or frame.
+    // Thin continuous progress line.
     const int16_t barX = 5;
     const int16_t barWidth = 118;
     avaDisplay.drawHLine(barX, 51, barWidth);
@@ -133,7 +136,6 @@ static void avaOTAUIRender()
     if (progressWidth > 0)
     {
         avaDisplay.drawHLine(barX, 51, progressWidth);
-        avaDisplay.drawVLine(barX + progressWidth - 1, 48, 6);
     }
 
     avaDisplay.setFont(u8g2_font_5x8_tf);
