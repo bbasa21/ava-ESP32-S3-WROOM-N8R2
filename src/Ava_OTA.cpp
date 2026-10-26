@@ -196,6 +196,15 @@ bool avaOTACheckForUpdate()
         return false;
     }
 
+    int manifestSize = http.getSize();
+    if (manifestSize <= 0 || manifestSize > 2048)
+    {
+        Serial.println("[OTA] ERROR: Manifest content length is invalid.");
+        http.end();
+        client.stop();
+        return false;
+    }
+
     String manifest = http.getString();
     http.end();
     client.stop();
@@ -203,6 +212,12 @@ bool avaOTACheckForUpdate()
     Serial.print("[OTA] Manifest size: ");
     Serial.print(manifest.length());
     Serial.println(" bytes");
+
+    if (manifest.length() != static_cast<size_t>(manifestSize))
+    {
+        Serial.println("[OTA] ERROR: Manifest download was incomplete.");
+        return false;
+    }
 
     uint32_t remoteBuild = 0;
     String firmwareURL;
