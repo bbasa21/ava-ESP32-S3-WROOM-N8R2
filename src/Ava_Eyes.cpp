@@ -4,6 +4,10 @@
 #include "Ava_OTA_Display.h"
 #include "Face.h"
 
+// Shared gaze state: one definition for every translation unit.
+AvaGazeDirection avaCurrentGaze = GAZE_CENTER;
+bool avaGazeManualLock = false;
+
 // ==================================================
 // AVA FACE ENGINE
 // --------------------------------------------------
