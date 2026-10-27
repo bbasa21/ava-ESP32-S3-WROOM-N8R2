@@ -1975,8 +1975,7 @@ public:
         }
 
 
-        const std::string rawValue = characteristic->getValue();
-        String value(rawValue.c_str());
+        String value = characteristic->getValue();
 
         if (value.length() == 0)
         {
@@ -2048,8 +2047,7 @@ public:
         }
 
 
-        const std::string rawValue = characteristic->getValue();
-        String value(rawValue.c_str());
+        String value = characteristic->getValue();
 
         if (value.length() == 0)
         {
