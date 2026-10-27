@@ -13,6 +13,7 @@
 
 #include "Ava_Eyes.h"
 #include "Ava_AI.h"
+#include "Ava_WiFi.h"
 #include "Ava_QnA.h"
 #include "Ava_OLED.h"
 #include "Ava_Config.h"
@@ -1107,6 +1108,42 @@ inline void processData(
 
 
     // ==================================================
+    // WI-FI SETTINGS (AVA PET DATA CHANNEL)
+    // ==================================================
+
+    if (value == "WIFI_STATUS_REQUEST")
+    {
+        if (avaWiFiConnected())
+            sendData("WIFI_STATUS|CONNECTED|" + avaWiFiSSID());
+        else
+            sendData("WIFI_STATUS|" + avaWiFiStatus());
+        return;
+    }
+
+    if (value.startsWith("WIFI_CONNECT|"))
+    {
+        const int ssidStart = String("WIFI_CONNECT|").length();
+        const int separator = value.indexOf('|', ssidStart);
+        if (separator < 0)
+        {
+            sendData("WIFI_CONNECT_REJECTED|INVALID_FORMAT");
+            return;
+        }
+
+        String ssid = value.substring(ssidStart, separator);
+        // Keep the rest intact so a password containing '|' is not truncated.
+        String password = value.substring(separator + 1);
+        if (!avaWiFiConnect(ssid, password))
+        {
+            sendData("WIFI_CONNECT_REJECTED|SAVE_FAILED_OR_EMPTY_SSID");
+            return;
+        }
+
+        sendData("WIFI_CONNECTING|" + ssid);
+        return;
+    }
+
+    // ==================================================
     // GAME ANSWER
     // ==================================================
 
@@ -1975,8 +2012,7 @@ public:
         }
 
 
-        const std::string rawValue = characteristic->getValue();
-        String value(rawValue.c_str());
+        String value = characteristic->getValue();
 
         if (value.length() == 0)
         {
@@ -2048,8 +2084,7 @@ public:
         }
 
 
-        const std::string rawValue = characteristic->getValue();
-        String value(rawValue.c_str());
+        String value = characteristic->getValue();
 
         if (value.length() == 0)
         {

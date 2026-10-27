@@ -32,6 +32,8 @@ bool avaWiFiConnected();
 
 String avaWiFiSSID();
 
+bool avaWiFiLoadSavedCredentials(String& ssid, String& password);
+
 bool avaWiFiConnect(const String& ssid, const String& password);
 
 String avaWiFiStatus();

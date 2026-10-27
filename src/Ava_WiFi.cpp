@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 
 #include "Ava_Config.h"
 #include "Ava_OLED.h"
@@ -31,21 +32,9 @@
 
 // ==================================================
 // WIFI CONFIGURATION
-// ==================================================
-//
-// مقدارهای فعلی SSID و PASSWORD خودت را اینجا نگه دار.
-// به دلیل امنیتی در این پاسخ دوباره نمایش داده نشده‌اند.
-//
-// ==================================================
-
-static const char* WIFI_SSID =
-    "mano pesaram shoma hame";
-
-static const char* WIFI_PASSWORD =
-    "0912403597609126336751";
+// Credentials are loaded from NVS; never hardcode personal Wi-Fi credentials.
 
 
-// ==================================================
 // WIFI RECONNECT
 // ==================================================
 
@@ -264,28 +253,20 @@ void avaWiFiBegin()
     );
 
 
-    Serial.print(
-        "[WiFi] SSID: "
-    );
+    String savedSSID;
+    String savedPassword;
 
-    Serial.println(
-        WIFI_SSID
-    );
-
-
-    Serial.println(
-        "[WiFi] Starting connection..."
-    );
-
-
-    // --------------------------------------------------
-    // START CONNECTION
-    // --------------------------------------------------
-
-    WiFi.begin(
-        WIFI_SSID,
-        WIFI_PASSWORD
-    );
+    if (avaWiFiLoadSavedCredentials(savedSSID, savedPassword))
+    {
+        Serial.print("[WiFi] Saved network found: ");
+        Serial.println(savedSSID);
+        Serial.println("[WiFi] Starting saved network connection...");
+        WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
+    }
+    else
+    {
+        Serial.println("[WiFi] No saved network. Configure AVA from AVA PET.");
+    }
 
 
     // --------------------------------------------------
