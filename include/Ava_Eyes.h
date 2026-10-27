@@ -264,6 +264,8 @@ void avaApplyCurrentGaze();
 
 // Debug-eyes behavior and game gaze lock.
 void avaEnableDebugEyes();
+bool avaIsDebugEyesEnabled();
+void avaSetReferenceRandomLook(bool enabled);
 void avaDisableDebugEyes();
 void avaEnterGameGazeLock();
 void avaExitGameGazeLock();
@@ -312,6 +314,7 @@ inline void setGaze(AvaGazeDirection gaze)
 
   // Manual gaze owns the gaze.
   avaGazeManualLock = true;
+  avaSetReferenceRandomLook(false);
 
   Serial.print("Gaze: ");
   Serial.println(getGazeName(gaze));
@@ -360,6 +363,8 @@ inline void setNaturalGaze(AvaGazeDirection gaze)
 inline void avaEnableNaturalGaze()
 {
   avaGazeManualLock = false;
+  // Keep the reference random-look engine reserved for debug-eyes mode.
+  avaSetReferenceRandomLook(avaIsDebugEyesEnabled());
 
   Serial.println("Gaze: AUTO");
 }
@@ -485,7 +490,7 @@ inline void avaNaturalGazeTick()
   // MANUAL PRIORITY
   // ==================================================
 
-  if (avaGazeManualLock)
+  if (avaGazeManualLock || avaIsDebugEyesEnabled())
   {
     return;
   }

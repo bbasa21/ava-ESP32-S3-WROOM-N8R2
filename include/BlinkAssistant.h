@@ -35,6 +35,8 @@ public:
 
 private:
     Face& _face;
+    bool _doubleBlinkPending = false;
+    uint32_t _doubleBlinkAtMs = 0;
 };
 
 // Compatibility bridge for Ava's existing main loop.

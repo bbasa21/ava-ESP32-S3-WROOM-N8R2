@@ -34,7 +34,9 @@ public:
     FaceBehavior Behavior;
 
     bool RandomBehavior = true;
-    bool RandomLook = true;
+    // AVA's own natural-gaze controller is the default owner of gaze.
+    // The reference engine's random look is enabled explicitly for debug eyes only.
+    bool RandomLook = false;
     bool RandomBlink = true;
 
     void Update();

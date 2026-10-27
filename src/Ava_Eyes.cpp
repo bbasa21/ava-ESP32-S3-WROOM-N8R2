@@ -43,10 +43,27 @@ BlinkAssistant& avaBlinkAssistant = avaFace.Blink;
 // ==================================================
 
 static bool avaGameGazeLockActive = false;
-static bool avaGameSavedRandomLook = true;
+static bool avaGameSavedRandomLook = false;
+static bool avaDebugEyesActive = false;
+
+bool avaIsDebugEyesEnabled()
+{
+    return avaDebugEyesActive;
+}
+
+void avaSetReferenceRandomLook(bool enabled)
+{
+    avaFace.RandomLook =
+        enabled &&
+        avaDebugEyesActive &&
+        !avaGameGazeLockActive &&
+        !avaIsGazeManualLocked();
+}
 
 void avaEnableDebugEyes()
 {
+    avaDebugEyesActive = true;
+
     // Give the Face behavior engine real emotion weights. Without this,
     // the stock engine has only Normal weighted and debug eyes appear frozen.
     avaFace.Behavior.Clear();
@@ -70,6 +87,9 @@ void avaEnableDebugEyes()
 
 void avaDisableDebugEyes()
 {
+    avaDebugEyesActive = false;
+    avaFace.RandomLook = false;
+
     // Stop the reference engine from randomly cycling through all 18 emotions.
     avaFace.RandomBehavior = false;
 
