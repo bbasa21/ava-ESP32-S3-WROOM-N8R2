@@ -129,14 +129,14 @@ enum AvaGazeDirection {
   GAZE_DOWN_RIGHT
 };
 
-static AvaGazeDirection avaCurrentGaze = GAZE_CENTER;
+extern AvaGazeDirection avaCurrentGaze;
 
 
 // ==================================================
 // MANUAL GAZE LOCK
 // ==================================================
 
-static bool avaGazeManualLock = false;
+extern bool avaGazeManualLock;
 
 
 // ==================================================
