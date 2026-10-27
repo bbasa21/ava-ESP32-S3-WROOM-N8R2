@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 
 #include "Ava_Config.h"
 #include "Ava_OLED.h"
@@ -32,17 +33,12 @@
 // ==================================================
 // WIFI CONFIGURATION
 // ==================================================
-//
-// مقدارهای فعلی SSID و PASSWORD خودت را اینجا نگه دار.
-// به دلیل امنیتی در این پاسخ دوباره نمایش داده نشده‌اند.
-//
+// Credentials are loaded from NVS; never hardcode them in source.
+// Namespace: ava_wifi | Keys: ssid, password
 // ==================================================
 
-static const char* WIFI_SSID =
-    "mano pesaram shoma hame";
-
-static const char* WIFI_PASSWORD =
-    "0912403597609126336751";
+static String configuredWiFiSSID;
+static String configuredWiFiPassword;
 
 
 // ==================================================
@@ -252,6 +248,25 @@ void avaWiFiBegin()
 
 
     // --------------------------------------------------
+    // LOAD SAVED CREDENTIALS FROM NVS
+    // --------------------------------------------------
+
+    Preferences wifiPreferences;
+    if (wifiPreferences.begin("ava_wifi", true))
+    {
+        configuredWiFiSSID = wifiPreferences.getString("ssid", "");
+        configuredWiFiPassword = wifiPreferences.getString("password", "");
+        wifiPreferences.end();
+    }
+    else
+    {
+        configuredWiFiSSID = "";
+        configuredWiFiPassword = "";
+        Serial.println("[WiFi] WARNING: Could not open WiFi NVS namespace.");
+    }
+
+
+    // --------------------------------------------------
     // DEVICE INFORMATION
     // --------------------------------------------------
 
@@ -264,28 +279,21 @@ void avaWiFiBegin()
     );
 
 
-    Serial.print(
-        "[WiFi] SSID: "
-    );
+    if (configuredWiFiSSID.length() > 0)
+    {
+        Serial.print("[WiFi] Saved SSID: ");
+        Serial.println(configuredWiFiSSID);
+        Serial.println("[WiFi] Connecting with credentials from NVS...");
 
-    Serial.println(
-        WIFI_SSID
-    );
-
-
-    Serial.println(
-        "[WiFi] Starting connection..."
-    );
-
-
-    // --------------------------------------------------
-    // START CONNECTION
-    // --------------------------------------------------
-
-    WiFi.begin(
-        WIFI_SSID,
-        WIFI_PASSWORD
-    );
+        WiFi.begin(
+            configuredWiFiSSID.c_str(),
+            configuredWiFiPassword.c_str()
+        );
+    }
+    else
+    {
+        Serial.println("[WiFi] No saved credentials. Configure WiFi in AVA PET.");
+    }
 
 
     // --------------------------------------------------
@@ -2077,6 +2085,12 @@ void avaWiFiUpdate()
     // ==================================================
     // RECONNECT
     // ==================================================
+
+    if (WiFi.SSID().length() == 0)
+    {
+        // No network has been configured yet; wait for AVA PET.
+        return;
+    }
 
     if (
         now -
