@@ -1,6 +1,7 @@
 #include "Ava_WiFi.h"
 
 #include <WiFi.h>
+#include <Preferences.h>
 
 // ==================================================
 // AVA NETWORK CONTROL
@@ -42,6 +43,24 @@ bool avaWiFiConnect(
         return false;
     }
 
+    // Persist credentials before starting the connection so they survive reboot.
+    Preferences wifiPreferences;
+    if (!wifiPreferences.begin("ava_wifi", false))
+    {
+        Serial.println("[WiFi] ERROR: Could not open WiFi NVS namespace.");
+        return false;
+    }
+
+    const size_t ssidBytes = wifiPreferences.putString("ssid", newSSID);
+    const size_t passwordBytes = wifiPreferences.putString("password", newPassword);
+    wifiPreferences.end();
+
+    if (ssidBytes == 0 || (newPassword.length() > 0 && passwordBytes == 0))
+    {
+        Serial.println("[WiFi] ERROR: Could not persist WiFi credentials to NVS.");
+        return false;
+    }
+
     avaNetworkRequestedSSID = newSSID;
     avaNetworkRequestedPassword = newPassword;
 
@@ -61,12 +80,12 @@ bool avaWiFiConnect(
     delay(100);
 
     WiFi.begin(
-        avaNetworkRequestedSSID,
-        avaNetworkRequestedPassword
+        avaNetworkRequestedSSID.c_str(),
+        avaNetworkRequestedPassword.c_str()
     );
 
     Serial.println(
-        "[WiFi] New network connection started."
+        "[WiFi] Credentials saved to NVS; connection started."
     );
 
     return true;
