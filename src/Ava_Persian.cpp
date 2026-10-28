@@ -190,10 +190,11 @@ String avaPersianShape(const String& text)
             prevIndex >= 0 &&
             AVA_PERSIAN_FORMS[prevIndex].dual;
 
+        // A letter that joins forward can connect to the next Arabic/Persian
+        // letter even when that next letter (e.g. alef) cannot join onward.
         const bool joinsToNext =
             nextIndex >= 0 &&
-            form.dual &&
-            AVA_PERSIAN_FORMS[nextIndex].dual;
+            form.dual;
 
         uint32_t shaped = form.isolated;
 
@@ -213,6 +214,30 @@ String avaPersianShape(const String& text)
 
         avaPersianAppendUTF8(out, shaped);
     }
+
+    return out;
+}
+
+String avaPersianVisualOrder(const String& text)
+{
+    // U8g2 draws glyphs left-to-right. Arabic-script presentation forms are
+    // shaped above, so reverse Unicode code points per rendered line to get
+    // the expected right-to-left visual order without corrupting UTF-8 bytes.
+    uint32_t codes[256];
+    size_t count = 0;
+    size_t pos = 0;
+
+    while (pos < text.length() && count < 256)
+    {
+        uint32_t code = 0;
+        avaPersianDecode(text.c_str(), pos, code);
+        codes[count++] = code;
+    }
+
+    String out;
+    out.reserve(text.length() + 1);
+    while (count > 0)
+        avaPersianAppendUTF8(out, codes[--count]);
 
     return out;
 }
