@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <vector>
 
 #include "Ava_DisplayAdapter.h"
 #include "EyeDrawer.h"
@@ -701,104 +702,135 @@ static void avaOLEDRenderMessage()
 
     AvaDisplayAdapter::beginFrame();
 
-    const bool rtl =
-        avaPersianHasRTL(avaOLEDMessageText);
-
-    // Shape Persian letters into presentation forms, then draw in normal
-    // direction. U8g2 does not perform Arabic joining by itself.
+    const bool rtl = avaPersianHasRTL(avaOLEDMessageText);
     const String displayText =
         rtl ? avaPersianShape(avaOLEDMessageText) : avaOLEDMessageText;
 
-    avaDisplay.setFont(
-        u8g2_font_unifont_t_arabic
-    );
+    // Smart Text Fit: select a compact font for long Latin/English replies.
+    // Persian keeps the Arabic-capable font to preserve connected glyphs.
+    const uint16_t textLength = displayText.length();
+    if (rtl)
+    {
+        avaDisplay.setFont(u8g2_font_unifont_t_arabic);
+    }
+    else if (textLength <= 48)
+    {
+        avaDisplay.setFont(u8g2_font_6x10_tf);
+    }
+    else if (textLength <= 100)
+    {
+        avaDisplay.setFont(u8g2_font_5x8_tf);
+    }
+    else
+    {
+        avaDisplay.setFont(u8g2_font_4x6_tf);
+    }
 
     avaDisplay.setDrawColor(1);
     avaDisplay.setFontDirection(0);
 
+    const int16_t lineHeight = rtl ? 11 : (textLength <= 48 ? 11 : (textLength <= 100 ? 9 : 7));
+    const int16_t firstBaseline = rtl ? 10 : (textLength <= 48 ? 10 : (textLength <= 100 ? 8 : 6));
+    const int16_t usableWidth = AVA_OLED_WIDTH - 4;
+
+    // Wrap by words and measure using the selected font. Keep every line so
+    // replies that exceed one screen can rotate through pages instead of being cut off.
+    std::vector<String> lines;
     String remaining = displayText;
-    int16_t y = 10;
+    remaining.trim();
 
-    while (remaining.length() > 0 && y <= 58)
+    while (remaining.length() > 0 && lines.size() < 180)
     {
-        remaining.trim();
-
-        if (remaining.length() == 0)
-        {
-            break;
-        }
-
         String line = "";
 
         while (remaining.length() > 0)
         {
             const int split = remaining.indexOf(' ');
-            String candidate;
+            String word = split < 0 ? remaining : remaining.substring(0, split);
+            String candidate = line.length() == 0 ? word : line + " " + word;
 
-            if (split < 0)
-            {
-                candidate = remaining;
-            }
-            else
-            {
-                const String word =
-                    remaining.substring(0, split);
+            const int16_t width = rtl
+                ? avaDisplay.getUTF8Width(candidate.c_str())
+                : avaDisplay.getStrWidth(candidate.c_str());
 
-                candidate =
-                    line.length() == 0
-                        ? word
-                        : line + " " + word;
-            }
+            if (width > usableWidth && line.length() > 0)
+                break;
 
-            if (avaDisplay.getUTF8Width(candidate.c_str()) >
-                AVA_OLED_WIDTH - 4)
+            // A single long word may not fit; take characters until it does.
+            if (width > usableWidth)
             {
+                size_t take = 1;
+                while (take < word.length())
+                {
+                    String part = word.substring(0, take + 1);
+                    const int16_t partWidth = rtl
+                        ? avaDisplay.getUTF8Width(part.c_str())
+                        : avaDisplay.getStrWidth(part.c_str());
+                    if (partWidth > usableWidth) break;
+                    ++take;
+                }
+                line = word.substring(0, take);
+                remaining = word.substring(take);
+                remaining.trim();
                 break;
             }
 
             line = candidate;
-
             if (split < 0)
             {
                 remaining = "";
                 break;
             }
-
-            remaining =
-                remaining.substring(split + 1);
-        }
-
-        if (line.length() == 0)
-        {
-            line =
-                remaining.substring(
-                    0,
-                    min((size_t)20, remaining.length())
-                );
-
-            remaining =
-                remaining.substring(line.length());
-
+            remaining = remaining.substring(split + 1);
             remaining.trim();
         }
 
-        const int16_t width =
-            avaDisplay.getUTF8Width(line.c_str());
+        if (line.length() == 0 && remaining.length() > 0)
+        {
+            line = remaining.substring(0, 1);
+            remaining = remaining.substring(1);
+            remaining.trim();
+        }
 
-        const int16_t x =
-            (AVA_OLED_WIDTH - width) / 2;
+        if (line.length() > 0)
+            lines.push_back(line);
+    }
 
-        avaDisplay.drawUTF8(
-            x,
-            y,
-            line.c_str()
-        );
+    const uint8_t linesPerPage = max(1, (int)((AVA_OLED_HEIGHT - 5) / lineHeight));
+    const size_t pageCount = max((size_t)1, (lines.size() + linesPerPage - 1) / linesPerPage);
+    const size_t page = pageCount > 1
+        ? ((millis() - avaOLEDMessageStartedMs) / 2500UL) % pageCount
+        : 0;
+    const size_t firstLine = page * linesPerPage;
+    const size_t lastLine = min(lines.size(), firstLine + linesPerPage);
 
-        y += 11;
+    int16_t y = firstBaseline;
+    for (size_t i = firstLine; i < lastLine; ++i)
+    {
+        const String& line = lines[i];
+        const int16_t width = rtl
+            ? avaDisplay.getUTF8Width(line.c_str())
+            : avaDisplay.getStrWidth(line.c_str());
+        const int16_t x = max(0, (AVA_OLED_WIDTH - width) / 2);
+
+        if (rtl)
+            avaDisplay.drawUTF8(x, y, line.c_str());
+        else
+            avaDisplay.drawStr(x, y, line.c_str());
+
+        y += lineHeight;
+    }
+
+    // Tiny page marker tells us when a long answer has more to read.
+    if (pageCount > 1)
+    {
+        String marker = String(page + 1) + "/" + String(pageCount);
+        avaDisplay.setFont(u8g2_font_4x6_tf);
+        avaDisplay.drawStr(AVA_OLED_WIDTH - avaDisplay.getStrWidth(marker.c_str()) - 1,
+                           AVA_OLED_HEIGHT - 1, marker.c_str());
     }
 
     avaDisplay.setFontDirection(0);
-
     AvaDisplayAdapter::endFrame();
 }
 
