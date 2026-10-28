@@ -336,9 +336,9 @@ void processCommand(String cmd) {
     apiKey.trim();
 
     if (avaAISetApiKey(apiKey)) {
-      Serial.println("[AI] OpenRouter API key saved securely in NVS.");
+      Serial.println("[AI] GapGPT API key saved in NVS.");
     } else {
-      Serial.println("[AI] ERROR: Could not save OpenRouter API key.");
+      Serial.println("[AI] ERROR: Could not save GapGPT API key.");
     }
 
     currentState = STATE_IDLE;
@@ -386,7 +386,7 @@ void processCommand(String cmd) {
   // Type: QNA|who is your developer
   // ================================
   // ================================
-// GEMINI AI
+// GAPGPT AI
 // Type: ask|your question
 // or:  gemini|your question
 // ================================
@@ -400,11 +400,11 @@ void processCommand(String cmd) {
     if (avaAIAsk(question, answer)) {
       avaApplyEmotion(AVA_EMOTION_HAPPY);
       avaOLEDShowMessage(answer);
-      Serial.println("[GEMINI] Answer delivered to OLED.");
+      Serial.println("[GAPGPT] Answer delivered to OLED.");
     } else {
       avaApplyEmotion(AVA_EMOTION_SAD_REFERENCE);
       avaOLEDShowMessage("GEMINI ERROR");
-      Serial.println("[GEMINI] Request failed.");
+      Serial.println("[GAPGPT] Request failed.");
     }
 
     currentState = STATE_IDLE;
@@ -944,7 +944,7 @@ void processCommand(String cmd) {
     } else {
       // Unknown questions enter the AVA AI path.
       // AI preparation checks WiFi + Internet before the
-      // future AVA AI API / Gemini request.
+      // GapGPT API request.
       avaApplyEmotion(AVA_EMOTION_FOCUSED);
       avaOLEDShowMessage("THINKING...");
 
