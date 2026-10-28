@@ -8,8 +8,8 @@
 #include "Ava_WiFi.h"
 #include "Ava_NetworkLock.h"
 
-#ifndef AVA_OPENROUTER_MODEL
-#define AVA_OPENROUTER_MODEL "openrouter/free"
+#ifndef AVA_GAPGPT_MODEL
+#define AVA_GAPGPT_MODEL "gpt-4o"
 #endif
 
 static const char* AVA_PREFS_NAMESPACE = "ava_ai";
@@ -197,14 +197,14 @@ bool avaAIPrepare()
 
     Serial.println();
     Serial.println("=========== AVA AI ===========");
-    Serial.println("[AI] OpenRouter request received.");
+    Serial.println("[AI] GapGPT request received.");
 
     const String apiKey = avaAIGetApiKey();
 
     if (apiKey.length() == 0)
     {
-        Serial.println("[AI] ERROR: OpenRouter API key is not configured.");
-        Serial.println("[AI] Set the key once with: apikey|YOUR_OPENROUTER_KEY");
+        Serial.println("[AI] ERROR: GapGPT API key is not configured.");
+        Serial.println("[AI] Set the key once with: apikey|YOUR_GAPGPT_KEY");
         Serial.println("==============================");
         return false;
     }
@@ -237,8 +237,8 @@ bool avaAIPrepare()
     aiReady = true;
 
     Serial.print("[AI] Model: ");
-    Serial.println(AVA_OPENROUTER_MODEL);
-    Serial.println("[AI] OpenRouter is ready.");
+    Serial.println(AVA_GAPGPT_MODEL);
+    Serial.println("[AI] GapGPT is ready.");
     Serial.println("==============================");
 
     return true;
@@ -266,7 +266,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     if (apiKey.length() == 0)
     {
-        Serial.println("[AI] ERROR: OpenRouter API key is not configured.");
+        Serial.println("[AI] ERROR: GapGPT API key is not configured.");
         aiReady = false;
         return false;
     }
@@ -275,7 +275,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     if (!networkLock.isLocked())
     {
-        Serial.println("[AI] ERROR: Could not acquire network lock for OpenRouter.");
+        Serial.println("[AI] ERROR: Could not acquire network lock for GapGPT.");
         aiReady = false;
         return false;
     }
@@ -284,7 +284,7 @@ bool avaAIAsk(const String& question, String& answer)
     client.setInsecure();
 
     HTTPClient http;
-    const String url = "https://openrouter.ai/api/v1/chat/completions";
+    const String url = "https://api.gapgpt.app/v1/chat/completions";
 
     if (!http.begin(client, url))
     {
@@ -295,7 +295,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     http.setTimeout(30000);
 
-    // OpenRouter is returning Transfer-Encoding: chunked to the ESP32.
+    // GapGPT is returning Transfer-Encoding: chunked to the ESP32.
     // Force HTTP/1.0 so the response uses a normal body instead of chunked
     // transfer encoding, which avoids an empty/whitespace payload on ESP32.
     http.useHTTP10(true);
@@ -322,7 +322,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     body =
         "{"
-        "\"model\":\"" + avaAIJsonEscape(AVA_OPENROUTER_MODEL) + "\","
+        "\"model\":\"" + avaAIJsonEscape(AVA_GAPGPT_MODEL) + "\","
         "\"messages\":["
             "{"
                 "\"role\":\"system\","
@@ -336,7 +336,7 @@ bool avaAIAsk(const String& question, String& answer)
         "\"stream\":false"
         "}";
 
-    Serial.println("[AI] Sending request to OpenRouter...");
+    Serial.println("[AI] Sending request to GapGPT...");
     Serial.print("[AI] Question: ");
     Serial.println(question);
 
@@ -369,23 +369,23 @@ bool avaAIAsk(const String& question, String& answer)
 
     if (httpCode < 200 || httpCode >= 300)
     {
-        Serial.println("[AI] OpenRouter request failed.");
+        Serial.println("[AI] GapGPT request failed.");
 
         const String errorMessage = avaAIExtractError(payload);
 
         if (errorMessage.length() > 0)
         {
-            Serial.print("[AI] OpenRouter error: ");
+            Serial.print("[AI] GapGPT error: ");
             Serial.println(errorMessage);
         }
         else
         {
-            Serial.println("[AI] OpenRouter error: No message field found.");
+            Serial.println("[AI] GapGPT error: No message field found.");
         }
 
-        Serial.print("[AI] OpenRouter response body length: ");
+        Serial.print("[AI] GapGPT response body length: ");
         Serial.println(payload.length());
-        Serial.println("[AI] OpenRouter response body:");
+        Serial.println("[AI] GapGPT response body:");
         Serial.println(payload);
 
         http.end();
@@ -393,12 +393,12 @@ bool avaAIAsk(const String& question, String& answer)
         return false;
     }
 
-    Serial.print("[AI] OpenRouter response body length: ");
+    Serial.print("[AI] GapGPT response body length: ");
     Serial.println(payload.length());
 
     if (!avaAIExtractText(payload, answer))
     {
-        Serial.println("[AI] ERROR: Could not extract OpenRouter response text.");
+        Serial.println("[AI] ERROR: Could not extract GapGPT response text.");
         Serial.println("[AI] Raw response:");
         Serial.println(payload);
         http.end();
@@ -408,7 +408,7 @@ bool avaAIAsk(const String& question, String& answer)
 
     http.end();
 
-    Serial.println("[AI] OpenRouter response received.");
+    Serial.println("[AI] GapGPT response received.");
     Serial.print("[AI] Answer: ");
     Serial.println(answer);
 

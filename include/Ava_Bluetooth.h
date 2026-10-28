@@ -1262,13 +1262,13 @@ inline void executeCommand(
 
             if (avaAISetApiKey(apiKey))
             {
-                Serial.println("[AI] OpenRouter API key saved securely in NVS.");
+                Serial.println("[AI] GapGPT API key saved in NVS.");
                 sendEvent("APIKEY_SAVED");
                 sendData("APIKEY_SAVED");
             }
             else
             {
-                Serial.println("[AI] ERROR: Could not save OpenRouter API key.");
+                Serial.println("[AI] ERROR: Could not save GapGPT API key.");
                 sendEvent("APIKEY_SAVE_FAILED");
                 sendData("APIKEY_SAVE_FAILED");
             }
