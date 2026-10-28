@@ -54,6 +54,15 @@ jobs:
       - name: Build firmware
         run: pio run -e ava
 
+      - name: Validate ESP firmware image
+        shell: bash
+        run: |
+          set -e
+          python -m pip install --disable-pip-version-check "esptool==4.8.1"
+          FIRMWARE=".pio/build/ava/firmware.bin"
+          test -s "$FIRMWARE"
+          python -m esptool image_info "$FIRMWARE"
+
       - name: Prepare release files
         shell: bash
         run: |
