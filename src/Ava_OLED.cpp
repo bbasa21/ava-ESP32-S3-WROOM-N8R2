@@ -814,9 +814,14 @@ static void avaOLEDRenderMessage()
         const int16_t x = max(0, (AVA_OLED_WIDTH - width) / 2);
 
         if (rtl)
-            avaDisplay.drawUTF8(x, y, line.c_str());
+        {
+            const String visualLine = avaPersianVisualOrder(line);
+            avaDisplay.drawUTF8(x, y, visualLine.c_str());
+        }
         else
+        {
             avaDisplay.drawStr(x, y, line.c_str());
+        }
 
         y += lineHeight;
     }
