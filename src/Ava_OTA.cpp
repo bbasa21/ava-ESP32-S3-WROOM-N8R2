@@ -102,6 +102,51 @@ static String avaOTASHA256ToString(const uint8_t* digest)
     return result;
 }
 
+static bool avaOTAReadbackSHA256(
+    const esp_partition_t* partition,
+    size_t imageSize,
+    String& result)
+{
+    if (partition == nullptr || imageSize == 0 ||
+        imageSize > partition->size)
+        return false;
+
+    uint8_t buffer[OTA_BUFFER_SIZE];
+    uint8_t digest[32];
+
+    mbedtls_sha256_context sha256;
+    mbedtls_sha256_init(&sha256);
+    mbedtls_sha256_starts(&sha256, 0);
+
+    size_t offset = 0;
+    while (offset < imageSize)
+    {
+        size_t chunk = imageSize - offset;
+        if (chunk > sizeof(buffer))
+            chunk = sizeof(buffer);
+
+        esp_err_t readResult =
+            esp_partition_read(partition, offset, buffer, chunk);
+        if (readResult != ESP_OK)
+        {
+            Serial.print("[OTA] ERROR: Flash readback failed at 0x");
+            Serial.print(offset, HEX);
+            Serial.print(": ");
+            Serial.println(esp_err_to_name(readResult));
+            mbedtls_sha256_free(&sha256);
+            return false;
+        }
+
+        mbedtls_sha256_update(&sha256, buffer, chunk);
+        offset += chunk;
+    }
+
+    mbedtls_sha256_finish(&sha256, digest);
+    mbedtls_sha256_free(&sha256);
+    result = avaOTASHA256ToString(digest);
+    return true;
+}
+
 static void avaOTAReportProgress(size_t written, size_t total)
 {
     if (total == 0) return;
@@ -503,7 +548,42 @@ bool avaOTAInstallUpdate()
         return false;
     }
 
-    Serial.println("[OTA] SHA-256 verified.");
+    Serial.println("[OTA] Download SHA-256 verified.");
+
+    // Verify the bytes actually programmed into the inactive OTA partition.
+    // A matching network digest alone cannot detect flash write/readback faults.
+    String flashSHA256;
+    if (!avaOTAReadbackSHA256(
+            targetPartition,
+            static_cast<size_t>(contentLength),
+            flashSHA256))
+    {
+        Serial.println("[OTA] ERROR: Could not verify flash readback.");
+        Update.abort();
+        http.end();
+        client.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2000);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.print("[OTA] Flash readback SHA-256: ");
+    Serial.println(flashSHA256);
+
+    if (flashSHA256 != avaOTAExpectedSHA256)
+    {
+        Serial.println("[OTA] ERROR: Flash readback SHA-256 mismatch.");
+        Update.abort();
+        http.end();
+        client.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2000);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.println("[OTA] Flash readback verified.");
     avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
 
     if (!Update.isFinished())
