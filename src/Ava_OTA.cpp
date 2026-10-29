@@ -381,6 +381,8 @@ bool avaOTAInstallUpdate()
         return false;
     }
 
+    Serial.print("[OTA] Running partition: ");
+    Serial.println(runningPartition->label);
     Serial.print("[OTA] Target partition: ");
     Serial.println(targetPartition->label);
     Serial.print("[OTA] Target address: 0x");
@@ -429,6 +431,10 @@ bool avaOTAInstallUpdate()
 
     uint8_t buffer[OTA_BUFFER_SIZE];
     size_t totalWritten = 0;
+    uint8_t downloadedHead[32] = {0};
+    uint8_t downloadedTail[32] = {0};
+    size_t downloadedHeadBytes = 0;
+    size_t downloadedTailBytes = 0;
     uint32_t lastDataTime = millis();
 
     mbedtls_sha256_context sha256;
@@ -497,13 +503,32 @@ bool avaOTAInstallUpdate()
             break;
         }
 
-        mbedtls_sha256_update(
-            &sha256,
-            buffer,
-            static_cast<size_t>(bytesRead)
-        );
+        const size_t chunkBytes = static_cast<size_t>(bytesRead);
+        if (downloadedHeadBytes < sizeof(downloadedHead))
+        {
+            size_t copyBytes = sizeof(downloadedHead) - downloadedHeadBytes;
+            if (copyBytes > chunkBytes) copyBytes = chunkBytes;
+            memcpy(downloadedHead + downloadedHeadBytes, buffer, copyBytes);
+            downloadedHeadBytes += copyBytes;
+        }
+        if (chunkBytes >= sizeof(downloadedTail))
+        {
+            memcpy(downloadedTail, buffer + chunkBytes - sizeof(downloadedTail), sizeof(downloadedTail));
+            downloadedTailBytes = sizeof(downloadedTail);
+        }
+        else
+        {
+            size_t keep = downloadedTailBytes;
+            if (keep + chunkBytes > sizeof(downloadedTail))
+                keep = sizeof(downloadedTail) - chunkBytes;
+            if (keep > 0)
+                memmove(downloadedTail, downloadedTail + downloadedTailBytes - keep, keep);
+            memcpy(downloadedTail + keep, buffer, chunkBytes);
+            downloadedTailBytes = keep + chunkBytes;
+        }
 
-        totalWritten += static_cast<size_t>(bytesRead);
+        mbedtls_sha256_update(&sha256, buffer, chunkBytes);
+        totalWritten += chunkBytes;
 
         avaOTAReportProgress(
             totalWritten,
@@ -601,10 +626,34 @@ bool avaOTAInstallUpdate()
     Serial.print("[OTA] Flash readback SHA-256: ");
     Serial.println(flashSHA256);
 
+    // Compare boundary bytes as well as the whole-image digest to localize
+    // common partition-offset/header/tail corruption without storing the image.
+    uint8_t flashHead[32] = {0};
+    uint8_t flashTail[32] = {0};
+    const size_t boundaryBytes = sizeof(flashHead);
+    esp_err_t headRead = esp_partition_read(targetPartition, 0, flashHead, boundaryBytes);
+    esp_err_t tailRead = esp_partition_read(
+        targetPartition, static_cast<size_t>(contentLength) - boundaryBytes,
+        flashTail, boundaryBytes);
+    Serial.print("[OTA] Boundary read status: head=");
+    Serial.print(esp_err_to_name(headRead));
+    Serial.print(" tail=");
+    Serial.println(esp_err_to_name(tailRead));
+    if (headRead == ESP_OK && downloadedHeadBytes == boundaryBytes)
+        Serial.printf("[OTA] First 32 bytes match: %s\\n",
+            memcmp(flashHead, downloadedHead, boundaryBytes) == 0 ? "YES" : "NO");
+    if (tailRead == ESP_OK && downloadedTailBytes == boundaryBytes)
+        Serial.printf("[OTA] Last 32 bytes match: %s\\n",
+            memcmp(flashTail, downloadedTail, boundaryBytes) == 0 ? "YES" : "NO");
+
     if (flashSHA256 != avaOTAExpectedSHA256)
     {
         Serial.println("[OTA] ERROR: Flash readback SHA-256 mismatch.");
-        Update.abort();
+        // Update.end(false) may already have selected this partition for boot.
+        // Restore the known-good running partition before returning on failure.
+        esp_err_t restoreResult = esp_ota_set_boot_partition(runningPartition);
+        Serial.print("[OTA] Restore known-good boot partition: ");
+        Serial.println(esp_err_to_name(restoreResult));
         http.end();
         client.stop();
         avaOTAUISetStatus(AVA_OTA_UI_ERROR);
