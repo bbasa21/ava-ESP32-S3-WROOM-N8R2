@@ -345,6 +345,43 @@ void processCommand(String cmd) {
     return;
   }
 
+  // Explicit, user-controlled persistent memory commands.
+  // Usage: remember|Ali prefers short Persian replies
+  if (cmd.startsWith("remember|")) {
+    String note = cmd.substring(9);
+    note.trim();
+    if (avaAISetMemory(note)) {
+      Serial.println("[AI] Saved user-approved memory note locally.");
+      avaOLEDShowMessage("MEMORY SAVED");
+    } else {
+      Serial.println("[AI] Memory note rejected. Keep it between 1 and 180 characters.");
+      avaOLEDShowMessage("MEMORY NOT SAVED");
+    }
+    currentState = STATE_IDLE;
+    return;
+  }
+
+  if (cmd == "forget memory") {
+    if (avaAIClearMemory()) {
+      Serial.println("[AI] Persistent memory note cleared.");
+      avaOLEDShowMessage("MEMORY CLEARED");
+    } else {
+      Serial.println("[AI] No saved memory note was found, or clearing failed.");
+      avaOLEDShowMessage("NO MEMORY NOTE");
+    }
+    currentState = STATE_IDLE;
+    return;
+  }
+
+  if (cmd == "show memory") {
+    String note = avaAIGetMemory();
+    Serial.print("[AI] Saved memory: ");
+    Serial.println(note.length() ? note : "(empty)");
+    avaOLEDShowMessage(note.length() ? note : "NO SAVED MEMORY");
+    currentState = STATE_IDLE;
+    return;
+  }
+
   cmd.toLowerCase();
 
   lastInteractionTime = millis();
@@ -398,12 +435,23 @@ void processCommand(String cmd) {
     String answer;
 
     if (avaAIAsk(question, answer)) {
-      avaApplyEmotion(AVA_EMOTION_HAPPY);
+      const char* emotionHint = avaAIEmotionHint(answer);
+      if (strcmp(emotionHint, "HAPPY") == 0) {
+        avaApplyEmotion(AVA_EMOTION_HAPPY);
+      } else if (strcmp(emotionHint, "SAD") == 0) {
+        avaApplyEmotion(AVA_EMOTION_SAD_REFERENCE);
+      } else if (strcmp(emotionHint, "THINKING") == 0) {
+        avaApplyEmotion(AVA_EMOTION_FOCUSED);
+      } else {
+        avaApplyEmotion(AVA_EMOTION_NORMAL);
+      }
+      Serial.print("[GAPGPT] OLED emotion selected: ");
+      Serial.println(emotionHint);
       avaOLEDShowMessage(answer);
       Serial.println("[GAPGPT] Answer delivered to OLED.");
     } else {
       avaApplyEmotion(AVA_EMOTION_SAD_REFERENCE);
-      avaOLEDShowMessage("GEMINI ERROR");
+      avaOLEDShowMessage("AI CONNECTION ERROR");
       Serial.println("[GAPGPT] Request failed.");
     }
 
