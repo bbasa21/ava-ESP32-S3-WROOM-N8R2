@@ -550,42 +550,6 @@ bool avaOTAInstallUpdate()
 
     Serial.println("[OTA] Download SHA-256 verified.");
 
-    // Verify the bytes actually programmed into the inactive OTA partition.
-    // A matching network digest alone cannot detect flash write/readback faults.
-    String flashSHA256;
-    if (!avaOTAReadbackSHA256(
-            targetPartition,
-            static_cast<size_t>(contentLength),
-            flashSHA256))
-    {
-        Serial.println("[OTA] ERROR: Could not verify flash readback.");
-        Update.abort();
-        http.end();
-        client.stop();
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2000);
-        avaOTAUIEnd();
-        return false;
-    }
-
-    Serial.print("[OTA] Flash readback SHA-256: ");
-    Serial.println(flashSHA256);
-
-    if (flashSHA256 != avaOTAExpectedSHA256)
-    {
-        Serial.println("[OTA] ERROR: Flash readback SHA-256 mismatch.");
-        Update.abort();
-        http.end();
-        client.stop();
-        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
-        delay(2000);
-        avaOTAUIEnd();
-        return false;
-    }
-
-    Serial.println("[OTA] Flash readback verified.");
-    avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
-
     if (!Update.isFinished())
     {
         Serial.print("[OTA] ERROR: Update incomplete: ");
@@ -616,6 +580,41 @@ bool avaOTAInstallUpdate()
         return false;
     }
 
+
+    // Verify the bytes actually programmed into the inactive OTA partition.
+    // A matching network digest alone cannot detect flash write/readback faults.
+    String flashSHA256;
+    if (!avaOTAReadbackSHA256(
+            targetPartition,
+            static_cast<size_t>(contentLength),
+            flashSHA256))
+    {
+        Serial.println("[OTA] ERROR: Could not verify flash readback.");
+        http.end();
+        client.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2000);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.print("[OTA] Flash readback SHA-256: ");
+    Serial.println(flashSHA256);
+
+    if (flashSHA256 != avaOTAExpectedSHA256)
+    {
+        Serial.println("[OTA] ERROR: Flash readback SHA-256 mismatch.");
+        Update.abort();
+        http.end();
+        client.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2000);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.println("[OTA] Flash readback verified.");
+    avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);
     http.end();
     client.stop();
 
