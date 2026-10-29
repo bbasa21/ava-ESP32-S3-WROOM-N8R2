@@ -606,6 +606,44 @@ bool avaOTAInstallUpdate()
     }
 
 
+    // Update.end(false) selects the target partition as the boot partition
+    // in the ESP32 Arduino Update implementation. Restore the currently running
+    // known-good partition immediately, BEFORE doing any readback diagnostics.
+    // The target must only be selected again after its programmed bytes verify.
+    esp_err_t safeBootResult = esp_ota_set_boot_partition(runningPartition);
+    Serial.print("[OTA] Restore known-good boot partition before readback: ");
+    Serial.println(esp_err_to_name(safeBootResult));
+
+    if (safeBootResult != ESP_OK)
+    {
+        Serial.println("[OTA] FATAL: Could not restore known-good boot partition. Not restarting.");
+        http.end();
+        client.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2000);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    const esp_partition_t* safeBootPartition = esp_ota_get_boot_partition();
+    if (safeBootPartition == nullptr ||
+        safeBootPartition->address != runningPartition->address)
+    {
+        Serial.println("[OTA] FATAL: Known-good boot partition verification failed. Not restarting.");
+        // One best-effort retry; never activate the target on this path.
+        esp_err_t retryResult = esp_ota_set_boot_partition(runningPartition);
+        Serial.print("[OTA] Restore retry: ");
+        Serial.println(esp_err_to_name(retryResult));
+        http.end();
+        client.stop();
+        avaOTAUISetStatus(AVA_OTA_UI_ERROR);
+        delay(2000);
+        avaOTAUIEnd();
+        return false;
+    }
+
+    Serial.println("[OTA] Known-good boot partition confirmed before readback.");
+
     // Verify the bytes actually programmed into the inactive OTA partition.
     // A matching network digest alone cannot detect flash write/readback faults.
     String flashSHA256;
