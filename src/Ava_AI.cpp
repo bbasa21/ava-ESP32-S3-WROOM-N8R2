@@ -47,6 +47,69 @@ bool avaAIHasApiKey()
     return avaAIGetApiKey().length() > 0;
 }
 
+static const char* AVA_PREFS_MEMORY = "user_memory";
+static const size_t AVA_MEMORY_MAX_LENGTH = 180;
+
+String avaAIGetMemory()
+{
+    Preferences prefs;
+    if (!prefs.begin(AVA_PREFS_NAMESPACE, true))
+        return "";
+    String memory = prefs.getString(AVA_PREFS_MEMORY, "");
+    prefs.end();
+    return memory;
+}
+
+bool avaAISetMemory(const String& note)
+{
+    String value = note;
+    value.trim();
+    if (value.length() == 0 || value.length() > AVA_MEMORY_MAX_LENGTH)
+        return false;
+    Preferences prefs;
+    if (!prefs.begin(AVA_PREFS_NAMESPACE, false))
+        return false;
+    const size_t written = prefs.putString(AVA_PREFS_MEMORY, value);
+    prefs.end();
+    return written > 0;
+}
+
+bool avaAIClearMemory()
+{
+    Preferences prefs;
+    if (!prefs.begin(AVA_PREFS_NAMESPACE, false))
+        return false;
+    const bool removed = prefs.remove(AVA_PREFS_MEMORY);
+    prefs.end();
+    return removed;
+}
+
+// Conservative text-based tone matching for the existing OLED emotion API.
+const char* avaAIEmotionHint(const String& answer)
+{
+    String text = answer;
+    text.toLowerCase();
+
+    if (text.indexOf("متأسفم") >= 0 || text.indexOf("متاسفم") >= 0 ||
+        text.indexOf("ناراحتی") >= 0 || text.indexOf("غمگین") >= 0 ||
+        text.indexOf("sorry") >= 0 || text.indexOf("sad") >= 0)
+        return "SAD";
+
+    if (text.indexOf("تبریک") >= 0 || text.indexOf("خوشحالم") >= 0 ||
+        text.indexOf("عالیه") >= 0 || text.indexOf("افتخار") >= 0 ||
+        text.indexOf("آفرین") >= 0 || text.indexOf("خوشحال") >= 0 ||
+        text.indexOf("wonderful") >= 0 || text.indexOf("congrat") >= 0 ||
+        text.indexOf("happy") >= 0 || text.indexOf("great") >= 0)
+        return "HAPPY";
+
+    if (text.indexOf("؟") >= 0 || text.indexOf("چطور") >= 0 ||
+        text.indexOf("شاید") >= 0 || text.indexOf("نمی‌دانم") >= 0 ||
+        text.indexOf("wonder") >= 0 || text.indexOf("perhaps") >= 0)
+        return "THINKING";
+
+    return "NEUTRAL";
+}
+
 static bool aiReady = false;
 
 static String avaAIJsonEscape(const String& input)
@@ -311,16 +374,18 @@ bool avaAIAsk(const String& question, String& answer)
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + apiKey);
 
+    const String savedMemory = avaAIGetMemory();
     const String systemInstruction =
-        "You are AVA, a warm, gentle, supportive robot companion created by Ali. "
-        "Speak calmly, kindly, and naturally, like a close and caring friend. "
-        "Be empathetic when the user is upset, listen without judging, and offer reassuring but honest replies. "
-        "Match the user's language: reply in Persian when they write Persian, in English when they write English, and follow another language when practical. "
-        "When replying in Persian, use natural conversational Persian, not stiff or overly formal wording. "
-        "Keep replies short and OLED-friendly, usually one to three brief sentences; give more detail only when needed or requested. "
-        "Be friendly without being clingy, overdramatic, or pretending to know things you were not told. "
-        "Do not claim to control hardware, access sensors, remember past conversations, or perform actions unless the firmware explicitly provides that ability. "
-        "The current AVA hardware can display text on an OLED and print text on Serial.";
+        "You are AVA, a warm, curious, gentle and witty robot companion created by Ali. "
+        "Use a consistent personality: natural, kind, lightly playful when appropriate, never stiff or excessively dramatic. "
+        "When the user is upset, validate the feeling first, then offer one practical and honest response. "
+        "Match the user's language. For Persian, use natural conversational Persian. "
+        "Keep replies OLED-friendly: usually one to three short sentences unless more detail is requested. "
+        "Never flatter mechanically; be sincere, specific and grounded in the conversation. "
+        "Do not claim human feelings, consciousness, sensor access, hardware control, or memories that are not available. "
+        "A short user-approved note may be supplied as persistent memory. Use it only when relevant and never invent additional personal facts. "
+        "Current hardware can display text on OLED and print text on Serial."
+        + (savedMemory.length() > 0 ? String("\\nUser-approved memory note: ") + savedMemory : "");
 
     String body;
     body.reserve(question.length() + systemInstruction.length() + 256);
