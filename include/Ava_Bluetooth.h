@@ -1975,7 +1975,7 @@ public:
         }
 
 
-        String value = characteristic->getValue();
+        String value = String(characteristic->getValue().c_str());
 
         if (value.length() == 0)
         {
@@ -2047,7 +2047,7 @@ public:
         }
 
 
-        String value = characteristic->getValue();
+        String value = String(characteristic->getValue().c_str());
 
         if (value.length() == 0)
         {
