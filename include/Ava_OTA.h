@@ -1,13 +1,5 @@
-#ifndef AVA_OTA_H
-#define AVA_OTA_H
-
+#pragma once
 #include <Arduino.h>
-
-bool avaOTAUpdate();
 bool avaOTACheckForUpdate();
-bool avaOTAInstallUpdate();
-
-void avaOTAStartTask();
+bool avaOTAStartInstall();
 bool avaOTAIsRunning();
-
-#endif

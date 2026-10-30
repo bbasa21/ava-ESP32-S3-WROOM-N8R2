@@ -177,35 +177,12 @@ void setup() {
 }
 
 void loop() {
-  // ==================================================
-  // SCHOOL BOOT SEQUENCE
-  //
-  // Greeting -> OTA check -> Weather check
-  //
-  // OTA is started before WiFi update once the greeting
-  // has finished, so the first Weather request cannot
-  // happen before the initial OTA check.
-  // ==================================================
-
-  if (!avaOLEDGreetingActive() && avaWiFiConnected())
-  {
-    avaOTAStartTask();
-  }
-
-  // OTA owns the network while its dedicated task is running.
-  if (!avaOTAIsRunning()) {
-    handleSerialInput();
-    AvaBluetooth::update();
-    avaCommunicationUpdate();
-    avaWiFiUpdate();
-  }
-
-  // OTA owns the OLED too. Keep the normal eye/behavior render loop
-  // completely out of the way while the dedicated OTA task is active.
-  // Otherwise eye updates can redraw over the OTA progress bar after
-  // avaOTAUIUpdate() renders it.
-  if (avaOTAIsRunning())
-  {
+  // OTA V2 is manual-only; no boot-time updater.
+  handleSerialInput();
+  AvaBluetooth::update();
+  avaCommunicationUpdate();
+  avaWiFiUpdate();
+  if (avaOTAIsRunning()) {
     avaOTAUIUpdate();
     delay(20);
     return;
@@ -383,6 +360,10 @@ void processCommand(String cmd) {
   }
 
   cmd.toLowerCase();
+  if (cmd.equalsIgnoreCase("ota check")) { avaOTACheckForUpdate(); currentState=STATE_IDLE; return; }
+  if (cmd.equalsIgnoreCase("ota install")) { avaOTAStartInstall(); currentState=STATE_IDLE; return; }
+  if (cmd.equalsIgnoreCase("ota status")) { Serial.println(avaOTAIsRunning() ? "[OTA2] INSTALLING" : "[OTA2] IDLE"); currentState=STATE_IDLE; return; }
+
 
   lastInteractionTime = millis();
   currentState = STATE_LISTENING;
