@@ -18,7 +18,7 @@ constexpr size_t CHUNK=4096;
 volatile bool busy=false;
 bool ready=false;
 uint32_t newBuild=0;
-String imageUrl, expected;
+String imageUrl, expected, remoteVersion, remoteCommit;
 
 bool getString(const String& j,const char* key,String& out){
  String k=String("\"")+key+"\"";int p=j.indexOf(k);if(p<0)return false;
@@ -33,7 +33,8 @@ bool getBuild(const String& j,uint32_t& out){
  if(p>=(int)j.length()||!isdigit((unsigned char)j[p]))return false;
  uint64_t n=0;while(p<(int)j.length()&&isdigit((unsigned char)j[p])){n=n*10+j[p++]-'0';if(n>UINT32_MAX)return false;}out=(uint32_t)n;return true;
 }
-bool validHash(const String& s){if(s.length()!=64)return false;for(char c:s)if(!isxdigit((unsigned char)c))return false;return true;}
+bool validHex(const String& s,size_t n){if(s.length()!=n)return false;for(char c:s)if(!isxdigit((unsigned char)c))return false;return true;}
+bool validVersion(const String& s){if(s.length()<5||s.length()>32)return false;int dots=0;bool digit=false;for(char c:s){if(c=='.'){if(!digit)return false;++dots;digit=false;}else if(isdigit((unsigned char)c))digit=true;else return false;}return dots==2&&digit;}
 String hexHash(const uint8_t* d){const char* h="0123456789abcdef";String s;s.reserve(64);for(int i=0;i<32;i++){s+=h[d[i]>>4];s+=h[d[i]&15];}return s;}
 bool partitionHash(const esp_partition_t* p,size_t n,String& out){
  if(!p||!n||n>p->size)return false;uint8_t b[CHUNK],d[32];mbedtls_sha256_context c;mbedtls_sha256_init(&c);mbedtls_sha256_starts(&c,0);
@@ -75,8 +76,8 @@ bool avaOTACheckForUpdate(){
  if(busy)return false;AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED){Serial.println("[OTA2] CHECK FAILED: Wi-Fi unavailable/busy.");return false;}
  ready=false;WiFiClientSecure client;client.useBuiltinCACertBundle();HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,MANIFEST))return false;int code=http.GET();if(code!=HTTP_CODE_OK){http.end();Serial.printf("[OTA2] Manifest HTTP %d\n",code);return false;}
- String json=http.getString();http.end();
- if(!getBuild(json,newBuild)||!getString(json,"firmware_url",imageUrl)||!getString(json,"sha256",expected)||!validHash(expected)||!imageUrl.startsWith("https://")){Serial.println("[OTA2] Invalid manifest.");return false;}
+ int manifestLength=http.getSize();if(manifestLength<=0||manifestLength>4096){http.end();Serial.println("[OTA2] Manifest size rejected.");return false;}String json=http.getString();http.end();if(json.length()!=(size_t)manifestLength){Serial.println("[OTA2] Manifest truncated.");return false;}
+ if(!getBuild(json,newBuild)||!getString(json,"version",remoteVersion)||!validVersion(remoteVersion)||!getString(json,"commit",remoteCommit)||!validHex(remoteCommit,40)||!getString(json,"firmware_url",imageUrl)||!getString(json,"sha256",expected)||!validHex(expected,64)){Serial.println("[OTA2] Invalid manifest/schema.");return false;}String allowed="https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-"+String(newBuild)+"/ava-firmware.bin";if(imageUrl!=allowed){Serial.println("[OTA2] Firmware URL rejected.");return false;}
  expected.toLowerCase();if(newBuild<=AVA_BUILD_NUMBER){Serial.printf("[OTA2] Up to date: local=%u remote=%lu\n",(unsigned)AVA_BUILD_NUMBER,(unsigned long)newBuild);return true;}
  ready=true;Serial.printf("[OTA2] Update available: build %lu. Run OTA INSTALL.\n",(unsigned long)newBuild);return true;
 }
