@@ -5,6 +5,7 @@
 #include <mbedtls/sha256.h>
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
+#include <esp_crt_bundle.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "Ava_BuildInfo.h"
@@ -44,8 +45,9 @@ void installer(void*){
  busy=true;avaOTAUIBegin();avaOTAUISetStatus(AVA_OTA_UI_UPDATING);
  AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));
  if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED||!ready){fail("Network unavailable or run OTA CHECK first.");busy=false;vTaskDelete(nullptr);return;}
- WiFiClientSecure client; // TODO V2.1: replace insecure TLS with pinned CA/certificate validation.
- client.setInsecure();HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(20000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+ WiFiClientSecure client;
+ client.setCACertBundle(x509_crt_bundle_start);
+ HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(20000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,imageUrl)){fail("Firmware request could not start.");busy=false;vTaskDelete(nullptr);return;}
  int code=http.GET(),length=http.getSize();if(code!=HTTP_CODE_OK||length<=0){http.end();fail("Invalid firmware HTTP response/length.");busy=false;vTaskDelete(nullptr);return;}
  const esp_partition_t* target=esp_ota_get_next_update_partition(nullptr);
@@ -71,7 +73,7 @@ void installer(void*){
 
 bool avaOTACheckForUpdate(){
  if(busy)return false;AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED){Serial.println("[OTA2] CHECK FAILED: Wi-Fi unavailable/busy.");return false;}
- ready=false;WiFiClientSecure client;client.setInsecure();HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+ ready=false;WiFiClientSecure client;client.setCACertBundle(x509_crt_bundle_start);HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,MANIFEST))return false;int code=http.GET();if(code!=HTTP_CODE_OK){http.end();Serial.printf("[OTA2] Manifest HTTP %d\n",code);return false;}
  String json=http.getString();http.end();
  if(!getBuild(json,newBuild)||!getString(json,"firmware_url",imageUrl)||!getString(json,"sha256",expected)||!validHash(expected)||!imageUrl.startsWith("https://")){Serial.println("[OTA2] Invalid manifest.");return false;}
