@@ -43,7 +43,7 @@ bool partitionHash(const esp_partition_t* p,size_t n,String& out){
 }
 void fail(const char* why){Serial.printf("[OTA2] ERROR: %s\n",why);avaOTAUISetStatus(AVA_OTA_UI_ERROR);delay(1500);avaOTAUIEnd();}
 void installer(void*){
- busy=true;avaOTAUIBegin();avaOTAUISetStatus(AVA_OTA_UI_UPDATING);
+ avaOTAUIBegin();avaOTAUISetStatus(AVA_OTA_UI_UPDATING);
  AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));
  if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED||!ready){fail("Network unavailable or run OTA CHECK first.");busy=false;vTaskDelete(nullptr);return;}
  WiFiClientSecure client;
@@ -81,5 +81,17 @@ bool avaOTACheckForUpdate(){
  expected.toLowerCase();if(newBuild<=AVA_BUILD_NUMBER){Serial.printf("[OTA2] Up to date: local=%u remote=%lu\n",(unsigned)AVA_BUILD_NUMBER,(unsigned long)newBuild);return true;}
  ready=true;Serial.printf("[OTA2] Update available: build %lu. Run OTA INSTALL.\n",(unsigned long)newBuild);return true;
 }
-bool avaOTAStartInstall(){if(busy||!ready){Serial.println("[OTA2] Run OTA CHECK first.");return false;}TaskHandle_t task=nullptr;if(xTaskCreatePinnedToCore(installer,"AVA_OTA2",12288,nullptr,1,&task,0)!=pdPASS){Serial.println("[OTA2] Installer task creation failed.");return false;}return true;}
+bool avaOTAStartInstall(){
+ if(busy||!ready){Serial.println("[OTA2] Run OTA CHECK first.");return false;}
+ // Claim the OTA state before creating the task so a second INSTALL cannot race
+ // the scheduler and start a second writer against the same inactive partition.
+ busy=true;
+ TaskHandle_t task=nullptr;
+ if(xTaskCreatePinnedToCore(installer,"AVA_OTA2",12288,nullptr,1,&task,0)!=pdPASS){
+  busy=false;
+  Serial.println("[OTA2] Installer task creation failed.");
+  return false;
+ }
+ return true;
+}
 bool avaOTAIsRunning(){return busy;}
