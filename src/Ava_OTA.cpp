@@ -1,6 +1,12 @@
 #include "Ava_OTA.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+
+// Use the SDK-embedded default CA bundle without overriding it with a custom pointer.
+class AvaSecureClient : public WiFiClientSecure {
+public:
+ AvaSecureClient() { _use_ca_bundle = true; }
+};
 #include <HTTPClient.h>
 #include <mbedtls/sha256.h>
 #include <esp_ota_ops.h>
@@ -46,8 +52,7 @@ void installer(void*){
  avaOTAUIBegin();avaOTAUISetStatus(AVA_OTA_UI_UPDATING);
  AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));
  if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED||!ready){fail("Network unavailable or run OTA CHECK first.");busy=false;vTaskDelete(nullptr);return;}
- WiFiClientSecure client;
- client.useBuiltinCACertBundle();
+ AvaSecureClient client;
  HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(20000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,imageUrl)){fail("Firmware request could not start.");busy=false;vTaskDelete(nullptr);return;}
  int code=http.GET(),length=http.getSize();if(code!=HTTP_CODE_OK||length<=0){http.end();fail("Invalid firmware HTTP response/length.");busy=false;vTaskDelete(nullptr);return;}
@@ -74,7 +79,7 @@ void installer(void*){
 
 bool avaOTACheckForUpdate(){
  if(busy)return false;AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED){Serial.println("[OTA2] CHECK FAILED: Wi-Fi unavailable/busy.");return false;}
- ready=false;WiFiClientSecure client;client.useBuiltinCACertBundle();HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+ ready=false;AvaSecureClient client;HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,MANIFEST))return false;int code=http.GET();if(code!=HTTP_CODE_OK){http.end();Serial.printf("[OTA2] Manifest HTTP %d\n",code);return false;}
  int manifestLength=http.getSize();if(manifestLength<=0||manifestLength>4096){http.end();Serial.println("[OTA2] Manifest size rejected.");return false;}String json=http.getString();http.end();if(json.length()!=(size_t)manifestLength){Serial.println("[OTA2] Manifest truncated.");return false;}
  if(!getBuild(json,newBuild)||!getString(json,"version",remoteVersion)||!validVersion(remoteVersion)||!getString(json,"commit",remoteCommit)||!validHex(remoteCommit,40)||!getString(json,"firmware_url",imageUrl)||!getString(json,"sha256",expected)||!validHex(expected,64)){Serial.println("[OTA2] Invalid manifest/schema.");return false;}String allowed="https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-"+String(newBuild)+"/ava-firmware.bin";if(imageUrl!=allowed){Serial.println("[OTA2] Firmware URL rejected.");return false;}
