@@ -2,14 +2,10 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-// Initialize Arduino's CA-bundle parser with the ESP-IDF embedded bundle.
-// Merely setting _use_ca_bundle skips arduino_esp_crt_bundle_set(), leaving
-// the Arduino bundle parser uninitialized and causing "Failed to attach bundle".
-extern const uint8_t x509_crt_bundle[];
-
+// Use the ESP-IDF built-in CA bundle through Arduino's supported API.
 class AvaSecureClient : public WiFiClientSecure {
 public:
- AvaSecureClient() { setCACertBundle(x509_crt_bundle); }
+ AvaSecureClient() { useBuiltinCACertBundle(); }
 };
 #include <HTTPClient.h>
 #include <mbedtls/sha256.h>
