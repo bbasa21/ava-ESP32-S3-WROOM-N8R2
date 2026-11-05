@@ -1,11 +1,23 @@
 #include "Ava_OTA.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <esp_arduino_version.h>
+#include <stdint.h>
 
-// Use the ESP-IDF built-in CA bundle through Arduino's supported API.
+#if ESP_ARDUINO_VERSION_MAJOR < 3
+extern "C" const uint8_t x509_crt_bundle[];
+#endif
+
+// Use the built-in ESP-IDF CA bundle with the API supported by each Arduino core.
 class AvaSecureClient : public WiFiClientSecure {
 public:
- AvaSecureClient() { useBuiltinCACertBundle(); }
+ AvaSecureClient() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  useBuiltinCACertBundle();
+#else
+  setCACertBundle(x509_crt_bundle);
+#endif
+ }
 };
 #include <HTTPClient.h>
 #include <mbedtls/sha256.h>
