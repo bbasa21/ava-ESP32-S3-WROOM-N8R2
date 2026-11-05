@@ -3,3 +3,4 @@
 bool avaOTACheckForUpdate();
 bool avaOTAStartInstall();
 bool avaOTAIsRunning();
+void avaOTAAutoUpdateTick();

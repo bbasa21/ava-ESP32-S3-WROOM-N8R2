@@ -182,6 +182,7 @@ void loop() {
   AvaBluetooth::update();
   avaCommunicationUpdate();
   avaWiFiUpdate();
+  avaOTAAutoUpdateTick();
   if (avaOTAIsRunning()) {
     avaOTAUIUpdate();
     delay(20);

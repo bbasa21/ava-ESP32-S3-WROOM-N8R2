@@ -1,11 +1,23 @@
 #include "Ava_OTA.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <esp_arduino_version.h>
+#include <stdint.h>
 
-// Use the SDK-embedded default CA bundle without overriding it with a custom pointer.
+#if ESP_ARDUINO_VERSION_MAJOR < 3
+extern "C" const uint8_t x509_crt_bundle[];
+#endif
+
+// Use the built-in ESP-IDF CA bundle with the API supported by each Arduino core.
 class AvaSecureClient : public WiFiClientSecure {
 public:
- AvaSecureClient() { _use_ca_bundle = true; }
+ AvaSecureClient() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  useBuiltinCACertBundle();
+#else
+  setCACertBundle(x509_crt_bundle);
+#endif
+ }
 };
 #include <HTTPClient.h>
 #include <mbedtls/sha256.h>
@@ -22,6 +34,11 @@ namespace {
 constexpr char MANIFEST[]="https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/main/ota/manifest.json";
 constexpr size_t CHUNK=4096;
 volatile bool busy=false;
+volatile bool checking=false;
+volatile bool autoCheckTaskPending=false;
+uint32_t lastAutoCheck=0;
+bool autoCheckClockStarted=false;
+constexpr uint32_t AUTO_CHECK_INTERVAL_MS=300000UL;
 bool ready=false;
 uint32_t newBuild=0;
 String imageUrl, expected, remoteVersion, remoteCommit;
@@ -77,7 +94,7 @@ void installer(void*){
 }
 }
 
-bool avaOTACheckForUpdate(){
+static bool avaOTACheckForUpdateImpl(){
  if(busy)return false;AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED){Serial.println("[OTA2] CHECK FAILED: Wi-Fi unavailable/busy.");return false;}
  ready=false;AvaSecureClient client;HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,MANIFEST))return false;int code=http.GET();if(code!=HTTP_CODE_OK){http.end();Serial.printf("[OTA2] Manifest HTTP %d\n",code);return false;}
@@ -86,8 +103,52 @@ bool avaOTACheckForUpdate(){
  expected.toLowerCase();if(newBuild<=AVA_BUILD_NUMBER){Serial.printf("[OTA2] Up to date: local=%u remote=%lu\n",(unsigned)AVA_BUILD_NUMBER,(unsigned long)newBuild);return true;}
  ready=true;Serial.printf("[OTA2] Update available: build %lu. Run OTA INSTALL.\n",(unsigned long)newBuild);return true;
 }
+
+static void avaOTAAutoCheckTask(void*) {
+ if (WiFi.status() == WL_CONNECTED) {
+  lastAutoCheck = millis();
+  Serial.println("[OTA2] AUTO CHECK: checking release manifest...");
+  avaOTACheckForUpdate();
+ } else {
+  Serial.println("[OTA2] AUTO CHECK: skipped; Wi-Fi disconnected.");
+ }
+ autoCheckTaskPending = false;
+ vTaskDelete(nullptr);
+}
+
+bool avaOTACheckForUpdate() {
+ if (busy || checking) {
+  Serial.println("[OTA2] CHECK skipped: OTA operation already active.");
+  return false;
+ }
+ checking = true;
+ bool result = avaOTACheckForUpdateImpl();
+ checking = false;
+ return result;
+}
+
+void avaOTAAutoUpdateTick() {
+ const uint32_t now = millis();
+ if (!autoCheckClockStarted) {
+  lastAutoCheck = now;
+  autoCheckClockStarted = true;
+  return;
+ }
+ if ((uint32_t)(now - lastAutoCheck) < AUTO_CHECK_INTERVAL_MS) return;
+ if (WiFi.status() != WL_CONNECTED) return;
+ if (busy || checking || autoCheckTaskPending) return;
+
+ autoCheckTaskPending = true;
+ TaskHandle_t task = nullptr;
+ if (xTaskCreatePinnedToCore(avaOTAAutoCheckTask, "AVA_OTA_CHECK", 12288,
+                              nullptr, 1, &task, 0) != pdPASS) {
+  autoCheckTaskPending = false;
+  Serial.println("[OTA2] AUTO CHECK: could not create task; will retry.");
+ }
+}
+
 bool avaOTAStartInstall(){
- if(busy||!ready){Serial.println("[OTA2] Run OTA CHECK first.");return false;}
+ if(busy||checking||!ready){Serial.println("[OTA2] CHECK/INSTALL already active or no verified update. Run OTA CHECK first.");return false;}
  // Claim the OTA state before creating the task so a second INSTALL cannot race
  // the scheduler and start a second writer against the same inactive partition.
  busy=true;
