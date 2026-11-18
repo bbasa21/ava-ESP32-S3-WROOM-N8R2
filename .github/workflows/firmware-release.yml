@@ -14,6 +14,7 @@ on:
       - "data/**"
       - "default_8MB.csv"
       - ".github/workflows/firmware-release.yml"
+      - "tools/**"
   workflow_dispatch:
 
 permissions:
@@ -69,15 +70,41 @@ jobs:
           mkdir -p release
           cp "$FIRMWARE" release/ava-firmware.bin
           sha256sum release/ava-firmware.bin | awk '{print $1}' > release/sha256.txt
+          firmware_size=$(stat -c%s release/ava-firmware.bin)
           cat > release/manifest.json <<EOF
           {
+            "schema": 3,
             "build": ${GITHUB_RUN_NUMBER},
             "version": "0.0.0",
             "commit": "${GITHUB_SHA}",
             "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-${GITHUB_RUN_NUMBER}/ava-firmware.bin",
+            "size": ${firmware_size},
             "sha256": "$(cat release/sha256.txt)"
           }
           EOF
+
+      - name: Sign release manifest (ECDSA P-256 / SHA-256)
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.AVA_OTA_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$OTA_SIGNING_PRIVATE_KEY" || {
+            echo "Missing repository secret AVA_OTA_SIGNING_PRIVATE_KEY." >&2
+            exit 1
+          }
+          key_file="$RUNNER_TEMP/ava-ota-signing-key.pem"
+          public_file="$RUNNER_TEMP/ava-ota-signing-public.pem"
+          signature_der="$RUNNER_TEMP/ava-ota-manifest.sig.der"
+          trap 'rm -f "$key_file" "$public_file" "$signature_der"' EXIT
+          printf '%s\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          openssl pkey -in "$key_file" -pubout -out "$public_file"
+          python tools/verify_ota_v3_public_key.py "$public_file" include/Ava_OTA_V3_PublicKey.h
+          openssl dgst -sha256 -sign "$key_file" -out "$signature_der" release/manifest.json
+          base64 -w0 "$signature_der" > release/manifest.sig
+          test -s release/manifest.sig
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
@@ -98,6 +125,7 @@ jobs:
             release/ava-firmware.bin
             release/manifest.json
             release/sha256.txt
+            release/manifest.sig
 
       - name: Publish latest OTA manifest
         if: github.ref == 'refs/heads/main'
@@ -122,12 +150,37 @@ jobs:
             } catch (error) {
               if (error.status !== 404) throw error;
             }
-            await github.rest.repos.createOrUpdateFileContents({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+            async function publish(filePath, fileContent, message) {
+              let sha;
+              try {
+                const current = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: filePath,
+                  ref: "main"
+                });
+                if (!Array.isArray(current.data) && current.data.sha) sha = current.data.sha;
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+              await github.rest.repos.createOrUpdateFileContents({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: filePath,
+                message,
+                content: Buffer.from(fileContent, "utf8").toString("base64"),
+                branch: "main",
+                ...(sha ? { sha } : {})
+              });
+            }
+            // Publish signature first and the manifest last as the commit marker.
+            await publish(
+              "ota/manifest.sig",
+              fs.readFileSync("release/manifest.sig", "utf8"),
+              "Publish OTA signature for build #" + process.env.GITHUB_RUN_NUMBER
+            );
+            await publish(
               path,
-              message: "Update OTA manifest for build #" + process.env.GITHUB_RUN_NUMBER,
-              content,
-              branch: "main",
-              ...(sha ? { sha } : {})
-            });
+              fs.readFileSync("release/manifest.json", "utf8"),
+              "Publish signed OTA manifest for build #" + process.env.GITHUB_RUN_NUMBER
+            );

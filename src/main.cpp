@@ -37,8 +37,9 @@
 #include "Ava_QnA.h"
 #include "Ava_AI.h"
 #include "Ava_WiFi.h"
-#include "Ava_OTA.h"
-#include "Ava_OTA_Display.h"
+#include "Ava_OTA_V3.h"
+#include "Ava_OTA_V3_Display.h"
+#include "Ava_OTA_V3_BootGuard.h"
 #include "Ava_Bluetooth.h"
 
 #include <esp_mac.h>
@@ -173,24 +174,28 @@ void setup() {
 
   AvaBluetooth::begin();
 
+  // OTA V3 uses one background worker. BootGuard starts after core services.
+  avaOTAV3Begin();
+  avaOTAV3BootGuardBegin();
+
   lastInteractionTime = millis();
 }
 
 void loop() {
-  // OTA V2 is manual-only; no boot-time updater.
   handleSerialInput();
   AvaBluetooth::update();
   avaCommunicationUpdate();
   avaWiFiUpdate();
-  avaOTAAutoUpdateTick();
-  if (avaOTAIsRunning()) {
-    avaOTAUIUpdate();
+
+  // One worker owns all OTA network and flash operations.
+  // The main loop only services BootGuard and renders an OLED snapshot.
+  avaOTAV3Tick();
+  if (avaOTAV3IsBusy()) {
+    avaOTAV3DisplayUpdate();
     delay(20);
     return;
   }
 
-  // Update raw touch state first so all higher-level logic sees
-  // the current physical touch state.
   avaTouchUpdate();
 
   if (!avaDecision().targetAvailable) {
@@ -198,11 +203,10 @@ void loop() {
   }
 
   avaDecisionUpdate();
-
   updateBehavior();
 
   avaOLEDUpdate();
-  avaOTAUIUpdate();
+  avaOTAV3DisplayUpdate();
   avaBlinkAssistantUpdate();
 
   delay(20);
@@ -361,9 +365,34 @@ void processCommand(String cmd) {
   }
 
   cmd.toLowerCase();
-  if (cmd.equalsIgnoreCase("ota check")) { avaOTACheckForUpdate(); currentState=STATE_IDLE; return; }
-  if (cmd.equalsIgnoreCase("ota install")) { avaOTAStartInstall(); currentState=STATE_IDLE; return; }
-  if (cmd.equalsIgnoreCase("ota status")) { Serial.println(avaOTAIsRunning() ? "[OTA2] INSTALLING" : "[OTA2] IDLE"); currentState=STATE_IDLE; return; }
+  if (cmd.equalsIgnoreCase("ota check")) {
+    const bool queued = avaOTAV3RequestCheck();
+    Serial.println(queued ? "[OTA3] CHECK QUEUED" : "[OTA3] CHECK REJECTED");
+    currentState = STATE_IDLE;
+    return;
+  }
+  if (cmd.equalsIgnoreCase("ota install")) {
+    const bool queued = avaOTAV3RequestInstall();
+    Serial.println(queued ? "[OTA3] INSTALL QUEUED" : "[OTA3] INSTALL REJECTED");
+    currentState = STATE_IDLE;
+    return;
+  }
+  if (cmd.equalsIgnoreCase("ota status")) {
+    const AvaOTAV3Status status = avaOTAV3GetStatus();
+    Serial.printf(
+      "[OTA3] state=%s error=%s progress=%u%% build=%lu remote=%lu bytes=%lu/%lu detail=%s\\n",
+      avaOTAV3StateName(status.state),
+      avaOTAV3ErrorName(status.error),
+      status.progress,
+      static_cast<unsigned long>(status.currentBuild),
+      static_cast<unsigned long>(status.availableBuild),
+      static_cast<unsigned long>(status.bytesTransferred),
+      static_cast<unsigned long>(status.totalBytes),
+      status.detail
+    );
+    currentState = STATE_IDLE;
+    return;
+  }
 
 
   lastInteractionTime = millis();

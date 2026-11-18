@@ -13,6 +13,7 @@ on:
       - "data/**"
       - "default_8MB.csv"
       - ".github/workflows/**"
+      - "tools/**"
   push:
     branches-ignore: [main]
     paths:
@@ -25,6 +26,7 @@ on:
       - "data/**"
       - "default_8MB.csv"
       - ".github/workflows/**"
+      - "tools/**"
 
 permissions:
   contents: read

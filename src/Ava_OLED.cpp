@@ -11,6 +11,7 @@
 #include "Ava_Eyes.h"
 #include "Ava_WiFi.h"
 #include "Ava_OTA_Display.h"
+#include "Ava_OTA_V3_Display.h"
 
 // ==================================================
 // OLED RENDER OWNER ARBITRATION
@@ -18,7 +19,12 @@
 
 bool avaOLEDCanRender(AvaOLEDRenderOwner owner)
 {
-    // Highest priority: OTA.
+    // Highest priority: V3, followed by the retained V2 display adapter.
+    if (avaOTAV3DisplayIsActive())
+    {
+        return owner == AVA_OLED_OWNER_OTA;
+    }
+
     if (avaOTAUIIsActive())
     {
         return owner == AVA_OLED_OWNER_OTA;
