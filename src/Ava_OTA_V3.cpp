@@ -114,12 +114,13 @@ bool fetchText(const char* url, size_t maximumLength,
     http.setTimeout(HTTP_READ_TIMEOUT_MS);
     http.setReuse(false);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    http.addHeader("Cache-Control", "no-cache");
 
     if (!http.begin(client, url)) {
         error = httpError;
         return false;
     }
+    // HTTPClient::begin() resets request headers; add cache policy afterwards.
+    http.addHeader("Cache-Control", "no-cache");
     const int code = http.GET();
     const int length = http.getSize();
     if (code != HTTP_CODE_OK) {
