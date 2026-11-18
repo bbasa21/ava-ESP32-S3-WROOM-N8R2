@@ -190,7 +190,10 @@ void loop() {
   // One worker owns all OTA network and flash operations.
   // The main loop only services BootGuard and renders an OLED snapshot.
   avaOTAV3Tick();
-  if (avaOTAV3IsBusy()) {
+  const AvaOTAV3Status otaLoopStatus = avaOTAV3GetStatus();
+  const bool bootHealthCheck =
+      otaLoopStatus.state == AVA_OTA_V3_BOOT_VERIFYING;
+  if (avaOTAV3IsBusy() && !bootHealthCheck) {
     avaOTAV3DisplayUpdate();
     delay(20);
     return;
@@ -311,6 +314,16 @@ void handleSerialInput() {
 
 void processCommand(String cmd) {
   cmd.trim();
+
+  // During an OTA transaction, only read-only status is accepted. This avoids
+  // overlapping NVS writes, AI requests, or other network traffic with flash I/O.
+  String normalizedForOTA = cmd;
+  normalizedForOTA.toLowerCase();
+  if (avaOTAV3IsBusy() && normalizedForOTA != "ota status") {
+    Serial.println("[OTA3] Command rejected while update/boot validation is active. Use OTA STATUS.");
+    currentState = STATE_IDLE;
+    return;
+  }
 
   // API key provisioning is handled before lowercasing so the key stays intact.
   if (cmd.startsWith("apikey|")) {
