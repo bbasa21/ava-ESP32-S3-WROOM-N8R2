@@ -185,11 +185,13 @@ void loop() {
   handleSerialInput();
   AvaBluetooth::update();
   avaCommunicationUpdate();
+
+  // Queue automatic OTA checks before background Wi-Fi/Weather traffic.
+  avaOTAV3Tick();
   avaWiFiUpdate();
 
   // One worker owns all OTA network and flash operations.
   // The main loop only services BootGuard and renders an OLED snapshot.
-  avaOTAV3Tick();
   const AvaOTAV3Status otaLoopStatus = avaOTAV3GetStatus();
   const bool bootHealthCheck =
       otaLoopStatus.state == AVA_OTA_V3_BOOT_VERIFYING;

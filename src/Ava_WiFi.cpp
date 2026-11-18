@@ -4,9 +4,12 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
+#include <freertos/FreeRTOS.h>
 
 #include "Ava_Config.h"
 #include "Ava_OLED.h"
+#include "Ava_NetworkLock.h"
+#include "Ava_OTA_V3.h"
 
 
 // ==================================================
@@ -62,8 +65,18 @@ static bool internetTestDone =
 static bool internetAvailable =
     false;
 
+// A network-lock collision is a defer, not a permanent test failure.
+static bool internetTestDeferred =
+    false;
+
+static unsigned long internetTestLastAttempt =
+    0;
+
 static constexpr unsigned long INTERNET_TEST_DELAY =
     1500UL;
+
+static constexpr unsigned long INTERNET_TEST_RETRY_DELAY =
+    5000UL;
 
 static unsigned long wifiConnectedSince =
     0;
@@ -365,6 +378,16 @@ bool avaWiFiInternetTest()
         return false;
     }
 
+
+    internetTestDeferred = false;
+    internetTestLastAttempt = millis();
+
+    AvaNetworkLockGuard networkLock(pdMS_TO_TICKS(500));
+    if (!networkLock.isLocked()) {
+        internetTestDeferred = true;
+        Serial.println("[NET] Internet test deferred: shared network channel is busy.");
+        return false;
+    }
 
     Serial.println();
 
@@ -1084,6 +1107,12 @@ bool avaWiFiGetTehranWeather()
 
     lastWeatherAttempt =
         millis();
+
+    AvaNetworkLockGuard networkLock(pdMS_TO_TICKS(500));
+    if (!networkLock.isLocked()) {
+        Serial.println("[WEATHER] Request deferred: shared network channel is busy.");
+        return false;
+    }
 
 
     Serial.println();
@@ -1923,6 +1952,9 @@ void avaWiFiUpdate()
             internetAvailable =
                 false;
 
+            internetTestDeferred = false;
+            internetTestLastAttempt = 0;
+
 
             // ------------------------------------------------
             // Weather state
@@ -1961,34 +1993,24 @@ void avaWiFiUpdate()
         // INTERNET TEST
         // ==================================================
 
+        const unsigned long networkNow = millis();
         if (
+            !avaOTAV3IsBusy() &&
             !internetTestDone &&
-            millis() -
-            wifiConnectedSince >=
-                INTERNET_TEST_DELAY
+            networkNow - wifiConnectedSince >= INTERNET_TEST_DELAY &&
+            (internetTestLastAttempt == 0 ||
+             networkNow - internetTestLastAttempt >= INTERNET_TEST_RETRY_DELAY)
         )
         {
-            internetAvailable =
-                avaWiFiInternetTest();
+            internetAvailable = avaWiFiInternetTest();
+            internetTestDone = !internetTestDeferred;
 
-
-            internetTestDone =
-                true;
-
-
-            if (
-                internetAvailable
-            )
-            {
-                Serial.println(
-                    "[WiFi] Internet is available."
-                );
-            }
-            else
-            {
-                Serial.println(
-                    "[WiFi] Internet test failed."
-                );
+            if (!internetTestDeferred) {
+                if (internetAvailable) {
+                    Serial.println("[WiFi] Internet is available.");
+                } else {
+                    Serial.println("[WiFi] Internet test failed.");
+                }
             }
         }
 
@@ -1998,6 +2020,7 @@ void avaWiFiUpdate()
         // ==================================================
 
         if (
+            !avaOTAV3IsBusy() &&
             internetTestDone &&
             internetAvailable
         )
