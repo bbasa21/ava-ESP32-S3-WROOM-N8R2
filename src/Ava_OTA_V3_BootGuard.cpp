@@ -73,9 +73,12 @@ void avaOTAV3BootGuardTick() {
                       static_cast<int>(result));
     }
 
-    if (elapsed >= HEALTH_FAILSAFE_DELAY_MS && freeHeap < MIN_HEAP_TO_CONFIRM) {
-        Serial.printf("[OTA3][BOOT] Health check failed: free heap=%lu. Reverting.\n",
-                      static_cast<unsigned long>(freeHeap));
+    if (elapsed >= HEALTH_FAILSAFE_DELAY_MS) {
+        Serial.printf(
+            "[OTA3][BOOT] Health confirmation timed out: heap=%lu, OLED=%s. Reverting.\n",
+            static_cast<unsigned long>(freeHeap),
+            displayHealthy ? "OK" : "NOT READY"
+        );
         avaOTAV3BootVerificationFailed();
         // Bootloader performs the actual rollback to the previous OTA slot.
         esp_ota_mark_app_invalid_rollback_and_reboot();
