@@ -14,6 +14,7 @@ on:
       - "default_8MB.csv"
       - ".github/workflows/**"
       - "tools/**"
+      - "ota/**"
   push:
     branches-ignore: [main]
     paths:
@@ -27,6 +28,7 @@ on:
       - "default_8MB.csv"
       - ".github/workflows/**"
       - "tools/**"
+      - "ota/**"
 
 permissions:
   contents: read
@@ -43,5 +45,7 @@ jobs:
           python-version: "3.x"
       - name: Install PlatformIO
         run: pip install platformio
-      - name: Build firmware
+      - name: Build production OTA channel
         run: pio run -e ava
+      - name: Build isolated OTA V3 test channel
+        run: pio run -e ava_ota_v3_test

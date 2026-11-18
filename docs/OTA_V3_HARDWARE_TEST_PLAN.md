@@ -9,7 +9,8 @@
 - [ ] Confirm the selected ESP32-S3 SDK configuration has `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=1`.
 - [ ] Generate the permanent P-256 keypair; embed only the public key in firmware.
 - [ ] Store the private key only in GitHub Actions secret `AVA_OTA_SIGNING_PRIVATE_KEY`.
-- [ ] Publish a signed test manifest and matching firmware release. Never use an unsigned manifest.
+- [ ] Provision the key and use the isolated `ava_ota_v3_test` environment.
+- [ ] Publish a signed staging manifest and matching `ota-v3-test-*` release on `feature/ota-v3`. Never point test firmware at the production manifest.
 - [ ] Keep a known-good firmware build and USB recovery path available.
 - [ ] Use stable power and do not disconnect power during flash writes.
 

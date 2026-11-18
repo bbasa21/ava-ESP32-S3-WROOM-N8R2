@@ -100,3 +100,10 @@ V2 source files remain in the branch for comparison and recovery. Production OTA
 
 The V3 worker uses the shared network mutex for every manifest, signature, and firmware request. The Wi-Fi internet probe and Weather HTTPS requests also acquire that same mutex with bounded waits. Background Wi-Fi/Weather traffic is deferred while an OTA transaction is active, and the main loop queues scheduled OTA checks before Wi-Fi maintenance. AI requests already use the shared mutex. This prevents concurrent HTTP/TLS sessions from competing with the OTA transfer.
 
+
+
+## Isolated staging channel
+
+The PlatformIO environment `ava_ota_v3_test` defines `AVA_OTA_V3_TEST_CHANNEL`. Test firmware reads its signed manifest and detached signature only from the `feature/ota-v3` branch and accepts only `ota-v3-test-<build>` release asset URLs. The standard `ava` environment remains pinned to the production manifest and `firmware-<build>` release naming. A separate push-triggered workflow is activated only by `ota/test-release.trigger`; it publishes staging artifacts and manifest files to the feature branch, never to `main`.
+
+This creates an end-to-end OTA validation path without exposing production devices to an experimental build or updating the production OTA manifest.

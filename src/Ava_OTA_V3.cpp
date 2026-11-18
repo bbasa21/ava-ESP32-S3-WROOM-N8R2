@@ -24,10 +24,19 @@ extern "C" const uint8_t x509_crt_bundle[];
 #endif
 
 namespace {
+#if defined(AVA_OTA_V3_TEST_CHANNEL)
+constexpr char MANIFEST_URL[] =
+    "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/feature/ota-v3/ota/v3-test-manifest.json";
+constexpr char SIGNATURE_URL[] =
+    "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/feature/ota-v3/ota/v3-test-manifest.sig";
+constexpr char RELEASE_TAG_PREFIX[] = "ota-v3-test-";
+#else
 constexpr char MANIFEST_URL[] =
     "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/main/ota/manifest.json";
 constexpr char SIGNATURE_URL[] =
     "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/main/ota/manifest.sig";
+constexpr char RELEASE_TAG_PREFIX[] = "firmware-";
+#endif
 constexpr size_t OTA_CHUNK_SIZE = 4096;
 constexpr uint32_t NETWORK_LOCK_TIMEOUT_MS = 12000;
 constexpr uint32_t HTTP_CONNECT_TIMEOUT_MS = 12000;
@@ -152,8 +161,8 @@ bool fetchVerifiedManifest(AvaOTAV3Manifest& manifest, AvaOTAV3Error& error) {
             body.length(), signature.c_str(), manifest, error)) return false;
 
     const String allowed =
-        String("https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-") +
-        String(manifest.build) + "/ava-firmware.bin";
+        String("https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/") +
+        RELEASE_TAG_PREFIX + String(manifest.build) + "/ava-firmware.bin";
     if (allowed != manifest.firmwareUrl) {
         error = AVA_OTA_V3_ERR_URL_REJECTED;
         return false;
