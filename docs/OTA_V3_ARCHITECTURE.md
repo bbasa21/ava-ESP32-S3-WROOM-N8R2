@@ -1,6 +1,6 @@
 # AVA OTA V3 Architecture
 
-Status: design baseline; implementation has not started.
+Status: first implementation committed on feature/ota-v3; production enablement remains gated on key provisioning, CI, and hardware validation.
 
 ## Goals
 
@@ -79,3 +79,19 @@ Any transaction state may transition to `FAILED` or `CANCELLED` with a stable er
 - No changes to AVA AI, gaze, OLED rendering outside the OTA display adapter, BLE protocol beyond routing OTA commands, or motor behavior.
 - No partition-table or bootloader replacement until the rollback gate is verified.
 - No production release from an experimental branch.
+
+
+## First implementation milestone
+
+The feature branch now contains a single-owner FreeRTOS worker, a bounded command queue, an explicit status/error snapshot, detached ECDSA P-256/SHA-256 manifest verification, exact release URL validation, inactive-slot streaming, SHA-256 and flash readback verification, ESP image validation, first-boot rollback confirmation, and an OLED adapter driven by the manager status snapshot.
+
+The embedded public-key header is intentionally a placeholder until the repository owner generates the permanent keypair. Signature verification fails closed while the placeholder is present. The release workflow will require the matching private key in the GitHub Actions secret AVA_OTA_SIGNING_PRIVATE_KEY and verify that its derived public key matches the firmware header before publication.
+
+V2 source files remain in the branch for comparison and recovery. Production OTA on main is not changed by this branch.
+
+## Remaining release gates
+
+- Generate the permanent P-256 keypair and configure the Actions secret; commit the corresponding public-key header only.
+- Confirm the PlatformIO CI build and inspect the generated bootloader and SDK configuration.
+- Exercise signed manifest verification and install on hardware, including invalid signature, invalid hash, truncated download, timeout, duplicate commands, network-lock contention, and rollback after a deliberately unhealthy test image.
+- Do not merge or publish until the hardware matrix passes.
