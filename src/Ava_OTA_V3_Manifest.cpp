@@ -176,7 +176,7 @@ bool avaOTAV3VerifyAndParseManifest(
     }
 
     unsigned char digest[32] = {};
-    if (mbedtls_sha256_ret(manifestBytes, manifestLength, digest, 0) != 0) {
+    if (mbedtls_sha256(manifestBytes, manifestLength, digest, 0) != 0) {
         error = AVA_OTA_V3_ERR_SIGNATURE_INVALID;
         return false;
     }
@@ -192,7 +192,7 @@ bool avaOTAV3VerifyAndParseManifest(
     bool verified = false;
     if (parsed == 0 && mbedtls_pk_can_do(&key, MBEDTLS_PK_ECDSA)) {
         const mbedtls_ecp_keypair* ec = mbedtls_pk_ec(key);
-        if (ec && ec->grp.id == MBEDTLS_ECP_DP_SECP256R1) {
+        if (ec && mbedtls_ecp_keypair_get_group_id(ec) == MBEDTLS_ECP_DP_SECP256R1) {
             verified = mbedtls_pk_verify(
                 &key, MBEDTLS_MD_SHA256, digest, sizeof(digest),
                 signature, signatureLength

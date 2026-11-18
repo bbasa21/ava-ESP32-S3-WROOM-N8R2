@@ -111,6 +111,8 @@ jobs:
           openssl dgst -sha256 -sign "$key_file" -out "$signature_der" release/manifest.json
           base64 -w0 "$signature_der" > release/manifest.sig
           test -s release/manifest.sig
+          # Verify the detached signature before any artifact or release is published.
+          openssl dgst -sha256 -verify "$public_file" -signature "$signature_der" release/manifest.json
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
