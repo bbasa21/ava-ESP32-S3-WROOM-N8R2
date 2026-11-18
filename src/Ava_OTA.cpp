@@ -33,6 +33,8 @@ public:
 namespace {
 constexpr char MANIFEST[]="https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/main/ota/manifest.json";
 constexpr size_t CHUNK=4096;
+// HTTPS/TLS firmware downloads need a larger dedicated task stack on ESP32-S3.
+constexpr uint32_t OTA_INSTALL_TASK_STACK=32768;
 volatile bool busy=false;
 volatile bool checking=false;
 volatile bool autoCheckTaskPending=false;
@@ -77,12 +79,15 @@ void installer(void*){
  if(!target||(size_t)length>target->size){http.end();fail("OTA partition unavailable or image too large.");busy=false;vTaskDelete(nullptr);return;}
  esp_ota_handle_t handle=0;esp_err_t err=esp_ota_begin(target,(size_t)length,&handle);
  if(err!=ESP_OK){http.end();fail("esp_ota_begin failed.");busy=false;vTaskDelete(nullptr);return;}
- WiFiClient* stream=http.getStreamPtr();uint8_t b[CHUNK],digest[32];size_t done=0;uint32_t last=millis();bool ok=stream!=nullptr;
+ WiFiClient* stream=http.getStreamPtr();static uint8_t b[CHUNK];uint8_t digest[32];size_t done=0;uint32_t last=millis();bool ok=stream!=nullptr;
  mbedtls_sha256_context sha;mbedtls_sha256_init(&sha);mbedtls_sha256_starts(&sha,0);
  while(ok&&done<(size_t)length){
   size_t a=stream->available();if(!a){if(!stream->connected()||millis()-last>20000){ok=false;break;}vTaskDelay(1);continue;}
   size_t want=min(sizeof(b),(size_t)length-done);want=min(want,a);int got=stream->read(b,want);if(got<=0)continue;last=millis();
   if(esp_ota_write(handle,b,(size_t)got)!=ESP_OK){ok=false;break;}mbedtls_sha256_update(&sha,b,(size_t)got);done+=(size_t)got;avaOTAUISetProgress((int)(done*100ULL/(size_t)length));
+  // Let IDLE0 run while the network stream continuously has data; otherwise
+  // this pinned installer task can starve the core-0 idle task and trip TWDT.
+  vTaskDelay(1);
  }
  mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);http.end();
  if(!ok||done!=(size_t)length||hexHash(digest)!=expected){esp_ota_abort(handle);fail("Download incomplete or SHA-256 mismatch.");busy=false;vTaskDelete(nullptr);return;}
@@ -153,7 +158,7 @@ bool avaOTAStartInstall(){
  // the scheduler and start a second writer against the same inactive partition.
  busy=true;
  TaskHandle_t task=nullptr;
- if(xTaskCreatePinnedToCore(installer,"AVA_OTA2",12288,nullptr,1,&task,0)!=pdPASS){
+ if(xTaskCreatePinnedToCore(installer,"AVA_OTA2",OTA_INSTALL_TASK_STACK,nullptr,1,&task,0)!=pdPASS){
   busy=false;
   Serial.println("[OTA2] Installer task creation failed.");
   return false;
