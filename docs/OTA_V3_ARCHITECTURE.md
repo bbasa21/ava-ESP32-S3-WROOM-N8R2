@@ -95,3 +95,8 @@ V2 source files remain in the branch for comparison and recovery. Production OTA
 - Confirm the PlatformIO CI build and inspect the generated bootloader and SDK configuration.
 - Exercise signed manifest verification and install on hardware, including invalid signature, invalid hash, truncated download, timeout, duplicate commands, network-lock contention, and rollback after a deliberately unhealthy test image.
 - Do not merge or publish until the hardware matrix passes.
+
+## Network ownership integration
+
+The V3 worker uses the shared network mutex for every manifest, signature, and firmware request. The Wi-Fi internet probe and Weather HTTPS requests also acquire that same mutex with bounded waits. Background Wi-Fi/Weather traffic is deferred while an OTA transaction is active, and the main loop queues scheduled OTA checks before Wi-Fi maintenance. AI requests already use the shared mutex. This prevents concurrent HTTP/TLS sessions from competing with the OTA transfer.
+
