@@ -1,0 +1,52 @@
+#pragma once
+#include <Arduino.h>
+#include <stdint.h>
+
+enum AvaOTAV3State : uint8_t {
+    AVA_OTA_V3_IDLE = 0, AVA_OTA_V3_CHECK_QUEUED, AVA_OTA_V3_CHECKING,
+    AVA_OTA_V3_UPDATE_AVAILABLE, AVA_OTA_V3_UP_TO_DATE,
+    AVA_OTA_V3_INSTALL_QUEUED, AVA_OTA_V3_DOWNLOADING,
+    AVA_OTA_V3_VERIFYING_IMAGE, AVA_OTA_V3_READY_TO_BOOT,
+    AVA_OTA_V3_REBOOT_PENDING, AVA_OTA_V3_BOOT_VERIFYING,
+    AVA_OTA_V3_BOOT_VALIDATED, AVA_OTA_V3_FAILED
+};
+
+enum AvaOTAV3Error : uint8_t {
+    AVA_OTA_V3_ERR_NONE = 0, AVA_OTA_V3_ERR_NOT_INITIALIZED,
+    AVA_OTA_V3_ERR_WORKER_CREATE, AVA_OTA_V3_ERR_BUSY,
+    AVA_OTA_V3_ERR_WIFI, AVA_OTA_V3_ERR_NETWORK_LOCK,
+    AVA_OTA_V3_ERR_MANIFEST_HTTP, AVA_OTA_V3_ERR_MANIFEST_SIZE,
+    AVA_OTA_V3_ERR_SIGNATURE_HTTP, AVA_OTA_V3_ERR_SIGNING_KEY_NOT_CONFIGURED,
+    AVA_OTA_V3_ERR_SIGNATURE_INVALID, AVA_OTA_V3_ERR_MANIFEST_SCHEMA,
+    AVA_OTA_V3_ERR_MANIFEST_CHANGED, AVA_OTA_V3_ERR_URL_REJECTED,
+    AVA_OTA_V3_ERR_IMAGE_HTTP, AVA_OTA_V3_ERR_IMAGE_SIZE,
+    AVA_OTA_V3_ERR_PARTITION, AVA_OTA_V3_ERR_OTA_BEGIN,
+    AVA_OTA_V3_ERR_DOWNLOAD_TIMEOUT, AVA_OTA_V3_ERR_OTA_WRITE,
+    AVA_OTA_V3_ERR_HASH_MISMATCH, AVA_OTA_V3_ERR_IMAGE_INVALID,
+    AVA_OTA_V3_ERR_READBACK, AVA_OTA_V3_ERR_SET_BOOT_PARTITION,
+    AVA_OTA_V3_ERR_BOOT_VALIDATION
+};
+
+struct AvaOTAV3Status {
+    AvaOTAV3State state;
+    AvaOTAV3Error error;
+    uint8_t progress;
+    uint32_t currentBuild;
+    uint32_t availableBuild;
+    uint32_t bytesTransferred;
+    uint32_t totalBytes;
+    char detail[48];
+};
+
+void avaOTAV3Begin();
+bool avaOTAV3RequestCheck();
+bool avaOTAV3RequestInstall();
+bool avaOTAV3IsBusy();
+void avaOTAV3Tick();
+AvaOTAV3Status avaOTAV3GetStatus();
+const char* avaOTAV3StateName(AvaOTAV3State state);
+const char* avaOTAV3ErrorName(AvaOTAV3Error error);
+
+void avaOTAV3BootVerificationStarted();
+void avaOTAV3BootVerificationConfirmed();
+void avaOTAV3BootVerificationFailed();
