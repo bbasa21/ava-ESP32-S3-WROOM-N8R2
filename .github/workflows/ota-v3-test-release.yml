@@ -87,11 +87,11 @@ jobs:
       - name: Sign staging manifest (ECDSA P-256 / SHA-256)
         shell: bash
         env:
-          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.AVA_OTA_SIGNING_PRIVATE_KEY }}
+          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.AVA_OTA_V3_TEST_SIGNING_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           test -n "$OTA_SIGNING_PRIVATE_KEY" || {
-            echo "Missing repository secret AVA_OTA_SIGNING_PRIVATE_KEY." >&2
+            echo "Missing repository secret AVA_OTA_V3_TEST_SIGNING_PRIVATE_KEY." >&2
             exit 1
           }
           key_file="$RUNNER_TEMP/ava-ota-staging-key.pem"
@@ -101,7 +101,7 @@ jobs:
           printf '%s\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
           chmod 600 "$key_file"
           openssl pkey -in "$key_file" -pubout -out "$public_file"
-          python tools/verify_ota_v3_public_key.py "$public_file" include/Ava_OTA_V3_PublicKey.h
+          python tools/verify_ota_v3_public_key.py "$public_file" include/Ava_OTA_V3_TestPublicKey.h AVA_OTA_V3_TEST_PUBLIC_KEY_CONFIGURED
           openssl dgst -sha256 -sign "$key_file" -out "$signature_der" release/manifest.json
           base64 -w0 "$signature_der" > release/manifest.sig
           test -s release/manifest.sig

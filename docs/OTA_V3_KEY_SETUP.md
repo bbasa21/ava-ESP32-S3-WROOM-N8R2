@@ -14,18 +14,23 @@ OTA V3 intentionally fails closed until a real signing public key is embedded in
 
 Run from the repository root in PowerShell:
 
-    .\tools\Setup-OTA-V3-Key.ps1 -SetGitHubSecret
+    .\tools\Setup-OTA-V3-Key.ps1 -Channel Production -SetGitHubSecret
+    .\tools\Setup-OTA-V3-Key.ps1 -Channel Test -SetGitHubSecret
 
 Requirements:
 - OpenSSL available directly or through Git for Windows.
 - GitHub CLI installed and authenticated with permission to manage repository Actions secrets.
 
-The script creates the private key outside the repository under %USERPROFILE%\AVA-OTA-V3-Key, writes the public-key header into include, and uploads the private key to GitHub Actions.
+The script creates private keys outside the repository under separate folders:
+- Production: %USERPROFILE%\AVA-OTA-V3-Key and secret `AVA_OTA_SIGNING_PRIVATE_KEY`.
+- Test: %USERPROFILE%\AVA-OTA-V3-Test-Key and secret `AVA_OTA_V3_TEST_SIGNING_PRIVATE_KEY`.
+
+Each run writes only its channel's public-key header into `include`. The private keys and GitHub Actions secrets are different. The staging workflow cannot access the production signing secret.
 
 Commit and push the generated public-key header to the feature branch (never add the private-key file):
 
-    git add .\include\Ava_OTA_V3_PublicKey.h
-    git commit -m "security(ota): configure V3 public verification key"
+    git add .\include\Ava_OTA_V3_PublicKey.h .\include\Ava_OTA_V3_TestPublicKey.h
+    git commit -m "security(ota): configure V3 channel public keys"
     git push origin feature/ota-v3
 
 ## Important
@@ -33,7 +38,8 @@ Commit and push the generated public-key header to the feature branch (never add
 - Never commit, upload as an artifact, or paste the private key into chat.
 - Keep an offline backup of the private key. Losing it means future manifests cannot be signed with the public key already embedded in deployed firmware.
 - The public key is an identity anchor. Rotating it requires a deliberate firmware key-rotation plan.
-- The checked-in public-key header is currently a placeholder. Until the real public key is generated and deployed in firmware, OTA V3 rejects all manifests.
+- Both checked-in public-key headers are currently placeholders. Provision both channels before their corresponding signed release workflows are used.
+- Keep the production private key unavailable to the feature-branch staging workflow.
 
 
 ## Isolated hardware test channel (does not touch production `main`)

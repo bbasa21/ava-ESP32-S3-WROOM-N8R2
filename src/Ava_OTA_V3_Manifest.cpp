@@ -1,5 +1,11 @@
 #include "Ava_OTA_V3_Manifest.h"
+#if defined(AVA_OTA_V3_TEST_CHANNEL)
+#include "Ava_OTA_V3_TestPublicKey.h"
+#define AVA_OTA_V3_PUBLIC_KEY_CONFIGURED AVA_OTA_V3_TEST_PUBLIC_KEY_CONFIGURED
+#define AVA_OTA_V3_PUBLIC_KEY_PEM AVA_OTA_V3_TEST_PUBLIC_KEY_PEM
+#else
 #include "Ava_OTA_V3_PublicKey.h"
+#endif
 
 #include <ctype.h>
 #include <string.h>
