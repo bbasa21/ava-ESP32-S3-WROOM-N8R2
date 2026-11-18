@@ -85,6 +85,9 @@ void installer(void*){
   size_t a=stream->available();if(!a){if(!stream->connected()||millis()-last>20000){ok=false;break;}vTaskDelay(1);continue;}
   size_t want=min(sizeof(b),(size_t)length-done);want=min(want,a);int got=stream->read(b,want);if(got<=0)continue;last=millis();
   if(esp_ota_write(handle,b,(size_t)got)!=ESP_OK){ok=false;break;}mbedtls_sha256_update(&sha,b,(size_t)got);done+=(size_t)got;avaOTAUISetProgress((int)(done*100ULL/(size_t)length));
+  // Let IDLE0 run while the network stream continuously has data; otherwise
+  // this pinned installer task can starve the core-0 idle task and trip TWDT.
+  vTaskDelay(1);
  }
  mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);http.end();
  if(!ok||done!=(size_t)length||hexHash(digest)!=expected){esp_ota_abort(handle);fail("Download incomplete or SHA-256 mismatch.");busy=false;vTaskDelete(nullptr);return;}
