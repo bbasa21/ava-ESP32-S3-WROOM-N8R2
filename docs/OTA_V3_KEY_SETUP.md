@@ -22,6 +22,12 @@ Requirements:
 
 The script creates the private key outside the repository under %USERPROFILE%\AVA-OTA-V3-Key, writes the public-key header into include, and uploads the private key to GitHub Actions.
 
+Commit and push the generated public-key header to the feature branch (never add the private-key file):
+
+    git add .\include\Ava_OTA_V3_PublicKey.h
+    git commit -m "security(ota): configure V3 public verification key"
+    git push origin feature/ota-v3
+
 ## Important
 
 - Never commit, upload as an artifact, or paste the private key into chat.
