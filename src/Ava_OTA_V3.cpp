@@ -356,8 +356,11 @@ void performInstall() {
             continue;
         }
 
-        size_t wanted = min(sizeof(buffer), manifest.size - written);
-        wanted = min(wanted, static_cast<size_t>(available));
+        size_t wanted = sizeof(buffer);
+        const size_t remaining = static_cast<size_t>(manifest.size) - written;
+        if (wanted > remaining) wanted = remaining;
+        const size_t availableBytes = static_cast<size_t>(available);
+        if (wanted > availableBytes) wanted = availableBytes;
         const int received = stream->read(buffer, wanted);
         if (received <= 0) {
             vTaskDelay(1);

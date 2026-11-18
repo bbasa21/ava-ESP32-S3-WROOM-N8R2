@@ -380,7 +380,7 @@ void processCommand(String cmd) {
   if (cmd.equalsIgnoreCase("ota status")) {
     const AvaOTAV3Status status = avaOTAV3GetStatus();
     Serial.printf(
-      "[OTA3] state=%s error=%s progress=%u%% build=%lu remote=%lu bytes=%lu/%lu detail=%s\\n",
+      "[OTA3] state=%s error=%s progress=%u%% build=%lu remote=%lu bytes=%lu/%lu detail=%s\n",
       avaOTAV3StateName(status.state),
       avaOTAV3ErrorName(status.error),
       status.progress,
