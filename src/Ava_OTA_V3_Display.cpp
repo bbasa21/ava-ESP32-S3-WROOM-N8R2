@@ -15,14 +15,14 @@ uint32_t terminalHoldUntil = 0;
 constexpr uint32_t TERMINAL_SCREEN_HOLD_MS = 6500UL;
 
 bool isTerminalState(AvaOTAV3State state) {
-    return state == AVA_OTA_V3_UPDATE_AVAILABLE ||
-           state == AVA_OTA_V3_UP_TO_DATE ||
+    return state == AVA_OTA_V3_UP_TO_DATE ||
            state == AVA_OTA_V3_BOOT_VALIDATED ||
            state == AVA_OTA_V3_FAILED;
 }
 bool isActiveState(AvaOTAV3State state) {
     return state == AVA_OTA_V3_CHECK_QUEUED ||
            state == AVA_OTA_V3_CHECKING ||
+           state == AVA_OTA_V3_UPDATE_AVAILABLE ||
            state == AVA_OTA_V3_INSTALL_QUEUED ||
            state == AVA_OTA_V3_DOWNLOADING ||
            state == AVA_OTA_V3_VERIFYING_IMAGE ||
