@@ -3,7 +3,15 @@
 #include <Arduino.h>
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
+#include "sdkconfig.h"
+
+#if !defined(CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE) || CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE != 1
+#error "AVA OTA V3 requires CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=1 in the selected ESP32-S3 bootloader configuration."
+#endif
+
 #include "Ava_OTA_V3.h"
+#include "Ava_OLED.h"
+#include "Ava_DisplayAdapter.h"
 
 namespace {
 bool pendingVerification = false;
@@ -46,8 +54,15 @@ void avaOTAV3BootGuardTick() {
 
     const uint32_t elapsed = static_cast<uint32_t>(millis() - verificationStartedAt);
     const uint32_t freeHeap = ESP.getFreeHeap();
+    const bool displayHealthy =
+        avaOLEDIsInitialized() &&
+        avaOLEDIsAvailable() &&
+        AvaDisplayAdapter::isReady();
+    const bool coreHealthy =
+        freeHeap >= MIN_HEAP_TO_CONFIRM &&
+        displayHealthy;
 
-    if (elapsed >= HEALTH_CONFIRM_DELAY_MS && freeHeap >= MIN_HEAP_TO_CONFIRM) {
+    if (elapsed >= HEALTH_CONFIRM_DELAY_MS && coreHealthy) {
         const esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
         if (result == ESP_OK) {
             pendingVerification = false;

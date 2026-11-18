@@ -76,7 +76,7 @@ bool isVersion(const char* value) {
     return dots == 2 && digitInComponent;
 }
 
-bool parseManifestJson(const uint8_t* bytes, size_t length, AvaOTAV3Manifest& m) {
+[[maybe_unused]] bool parseManifestJson(const uint8_t* bytes, size_t length, AvaOTAV3Manifest& m) {
     if (!bytes || length == 0 || length > 2048) return false;
     JsonCursor c {
         reinterpret_cast<const char*>(bytes),

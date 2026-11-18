@@ -102,10 +102,10 @@ void avaOTAV3DisplayUpdate() {
                  static_cast<unsigned long>(status.bytesTransferred / 1024U),
                  static_cast<unsigned long>(status.totalBytes / 1024U));
     } else if (status.error != AVA_OTA_V3_ERR_NONE) {
-        snprintf(footer, sizeof(footer), "ERR: %s",
-                 avaOTAV3ErrorName(status.error));
+        snprintf(footer, sizeof(footer), "ERR:%u",
+                 static_cast<unsigned>(status.error));
     } else {
-        snprintf(footer, sizeof(footer), "%s", status.detail);
+        snprintf(footer, sizeof(footer), "%.23s", status.detail);
     }
     avaDisplay.setFont(u8g2_font_5x8_tf);
     avaDisplay.drawStr(2, 62, footer);

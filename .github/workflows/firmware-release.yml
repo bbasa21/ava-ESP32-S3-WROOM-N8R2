@@ -1,5 +1,11 @@
 name: AVA Firmware Release
 
+# Serialize production signing/publication so two main pushes cannot interleave
+# a manifest from one build with a detached signature from another.
+concurrency:
+  group: ava-firmware-release-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   push:
     branches:
