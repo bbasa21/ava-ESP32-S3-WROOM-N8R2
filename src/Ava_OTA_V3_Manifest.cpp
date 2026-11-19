@@ -10,7 +10,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <mbedtls/base64.h>
-#include <mbedtls/ecp.h>
+#include <mbedtls/md.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/sha256.h>
 
@@ -176,7 +176,9 @@ bool avaOTAV3VerifyAndParseManifest(
     }
 
     unsigned char digest[32] = {};
-    if (mbedtls_sha256_ret(manifestBytes, manifestLength, digest, 0) != 0) {
+    const mbedtls_md_info_t* sha256Info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    if (!sha256Info ||
+        mbedtls_md(sha256Info, manifestBytes, manifestLength, digest) != 0) {
         error = AVA_OTA_V3_ERR_SIGNATURE_INVALID;
         return false;
     }
@@ -191,8 +193,9 @@ bool avaOTAV3VerifyAndParseManifest(
 
     bool verified = false;
     if (parsed == 0 && mbedtls_pk_can_do(&key, MBEDTLS_PK_ECDSA)) {
-        const mbedtls_ecp_keypair* ec = mbedtls_pk_ec(key);
-        if (ec && ec->grp.id == MBEDTLS_ECP_DP_SECP256R1) {
+        // The embedded trust-anchor is the P-256 public key. Check its
+        // key size without accessing MbedTLS-private ECP structure fields.
+        if (mbedtls_pk_get_bitlen(&key) == 256) {
             verified = mbedtls_pk_verify(
                 &key, MBEDTLS_MD_SHA256, digest, sizeof(digest),
                 signature, signatureLength
