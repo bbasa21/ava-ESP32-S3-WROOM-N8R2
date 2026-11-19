@@ -115,11 +115,11 @@ bool fetchText(const char* url, size_t maximumLength,
     http.setReuse(false);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-    Serial.printf("[OTA3][HTTP] GET %s\\n", url);
+    Serial.printf("[OTA3][HTTP] GET %s\n", url);
     if (!http.begin(client, url)) {
         char tlsError[160] = {};
         client.lastError(tlsError, sizeof(tlsError));
-        Serial.printf("[OTA3][HTTP] begin FAILED; client=%s\\n", tlsError);
+        Serial.printf("[OTA3][HTTP] begin FAILED; client=%s\n", tlsError);
         error = httpError;
         return false;
     }
@@ -128,24 +128,24 @@ bool fetchText(const char* url, size_t maximumLength,
     const int code = http.GET();
     const int length = http.getSize();
     if (code != HTTP_CODE_OK) {
-        Serial.printf("[OTA3][HTTP] GET FAILED: code=%d (%s), contentLength=%d\\n",
+        Serial.printf("[OTA3][HTTP] GET FAILED: code=%d (%s), contentLength=%d\n",
             code, HTTPClient::errorToString(code).c_str(), length);
         char tlsError[160] = {};
         client.lastError(tlsError, sizeof(tlsError));
-        if (tlsError[0] != '\\0') {
-            Serial.printf("[OTA3][HTTP] client detail: %s\\n", tlsError);
+        if (tlsError[0] != '\0') {
+            Serial.printf("[OTA3][HTTP] client detail: %s\n", tlsError);
         }
         const String redirect = http.getLocation();
         if (redirect.length()) {
-            Serial.printf("[OTA3][HTTP] redirect location: %s\\n", redirect.c_str());
+            Serial.printf("[OTA3][HTTP] redirect location: %s\n", redirect.c_str());
         }
         http.end();
         error = httpError;
         return false;
     }
-    Serial.printf("[OTA3][HTTP] GET OK: code=%d contentLength=%d\\n", code, length);
+    Serial.printf("[OTA3][HTTP] GET OK: code=%d contentLength=%d\n", code, length);
     if (length <= 0 || static_cast<size_t>(length) > maximumLength) {
-        Serial.printf("[OTA3][HTTP] invalid response length: %d (max=%u)\\n",
+        Serial.printf("[OTA3][HTTP] invalid response length: %d (max=%u)\n",
             length, static_cast<unsigned>(maximumLength));
         http.end();
         error = sizeError;
@@ -154,7 +154,7 @@ bool fetchText(const char* url, size_t maximumLength,
 
     output = http.getString();
     http.end();
-    Serial.printf("[OTA3][HTTP] body received: %u bytes\\n",
+    Serial.printf("[OTA3][HTTP] body received: %u bytes\n",
         static_cast<unsigned>(output.length()));
     if (output.length() != static_cast<unsigned int>(length) ||
         output.length() > maximumLength) {
@@ -340,7 +340,7 @@ void performInstall() {
 
     Serial.println("[OTA3][DIAG] Firmware HTTP GET starting.");
     const int code = http.GET();
-    Serial.printf("[OTA3][DIAG] Firmware HTTP GET finished: code=%d size=%d\\n",
+    Serial.printf("[OTA3][DIAG] Firmware HTTP GET finished: code=%d size=%d\n",
         code, http.getSize());
     const int contentLength = http.getSize();
     if (code != HTTP_CODE_OK) {
