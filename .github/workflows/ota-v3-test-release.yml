@@ -1,7 +1,7 @@
 name: AVA OTA V3 Test Release
 
-# Deliberately push-triggered only by an explicit staging trigger file.
-# It never publishes to main or changes the production OTA manifest.
+# Explicit staging trigger only. Uses the existing production signing key
+# and matching public trust anchor; publishes only to feature/ota-v3.
 on:
   push:
     branches:
@@ -84,27 +84,28 @@ jobs:
           }
           EOF
 
-      - name: Sign staging manifest (ECDSA P-256 / SHA-256)
+      - name: Sign staging manifest with the existing OTA key (ECDSA P-256 / SHA-256)
         shell: bash
         env:
-          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.AVA_OTA_V3_TEST_SIGNING_PRIVATE_KEY }}
+          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.AVA_OTA_SIGNING_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           test -n "$OTA_SIGNING_PRIVATE_KEY" || {
-            echo "Missing repository secret AVA_OTA_V3_TEST_SIGNING_PRIVATE_KEY." >&2
+            echo "Missing repository secret AVA_OTA_SIGNING_PRIVATE_KEY." >&2
             exit 1
           }
           key_file="$RUNNER_TEMP/ava-ota-staging-key.pem"
           public_file="$RUNNER_TEMP/ava-ota-staging-public.pem"
           signature_der="$RUNNER_TEMP/ava-ota-staging-manifest.sig.der"
           trap 'rm -f "$key_file" "$public_file" "$signature_der"' EXIT
-          printf '%s\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
+          printf '%s\\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
           chmod 600 "$key_file"
           openssl pkey -in "$key_file" -pubout -out "$public_file"
           python tools/verify_ota_v3_public_key.py "$public_file" include/Ava_OTA_V3_TestPublicKey.h AVA_OTA_V3_TEST_PUBLIC_KEY_CONFIGURED
           openssl dgst -sha256 -sign "$key_file" -out "$signature_der" release/manifest.json
           base64 -w0 "$signature_der" > release/manifest.sig
           test -s release/manifest.sig
+          openssl dgst -sha256 -verify "$public_file" -signature "$signature_der" release/manifest.json
 
       - name: Create staging GitHub release
         uses: softprops/action-gh-release@v2
@@ -155,7 +156,6 @@ jobs:
               });
             }
 
-            // Publish signature first; manifest is the final commit marker.
             await publish(
               "ota/v3-test-manifest.sig",
               fs.readFileSync("release/manifest.sig", "utf8"),
