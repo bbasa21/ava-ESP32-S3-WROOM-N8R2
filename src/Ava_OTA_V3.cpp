@@ -318,7 +318,10 @@ void performInstall() {
         return;
     }
 
+    Serial.println("[OTA3][DIAG] Firmware HTTP GET starting.");
     const int code = http.GET();
+    Serial.printf("[OTA3][DIAG] Firmware HTTP GET finished: code=%d size=%d\\n",
+        code, http.getSize());
     const int contentLength = http.getSize();
     if (code != HTTP_CODE_OK) {
         http.end();
@@ -475,9 +478,12 @@ void avaOTAV3Begin() {
         fail(AVA_OTA_V3_ERR_WORKER_CREATE, "COMMAND QUEUE FAILED");
         return;
     }
-    if (xTaskCreate(
+    // Keep OTA HTTPS/flash work off CPU0, which hosts critical ESP-IDF
+    // system and IPC activity. The worker yields during download/hash loops.
+    constexpr BaseType_t OTA_WORKER_CORE = 1;
+    if (xTaskCreatePinnedToCore(
             otaWorker, "AVA_OTA_V3", OTA_WORKER_STACK_SIZE,
-            nullptr, 1, &workerTaskHandle
+            nullptr, 1, &workerTaskHandle, OTA_WORKER_CORE
         ) != pdPASS) {
         workerTaskHandle = nullptr;
         fail(AVA_OTA_V3_ERR_WORKER_CREATE, "WORKER TASK FAILED");
