@@ -98,7 +98,7 @@ jobs:
           public_file="$RUNNER_TEMP/ava-ota-staging-public.pem"
           signature_der="$RUNNER_TEMP/ava-ota-staging-manifest.sig.der"
           trap 'rm -f "$key_file" "$public_file" "$signature_der"' EXIT
-          printf '%s\\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
+          printf '%s\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
           chmod 600 "$key_file"
           openssl pkey -in "$key_file" -pubout -out "$public_file"
           python tools/verify_ota_v3_public_key.py "$public_file" include/Ava_OTA_V3_TestPublicKey.h AVA_OTA_V3_TEST_PUBLIC_KEY_CONFIGURED
