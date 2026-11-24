@@ -121,7 +121,7 @@ jobs:
             release/manifest.sig
             release/sha256.txt
 
-      - name: Publish staging manifest to feature branch only
+      - name: Publish staging manifest to hardening branch only
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
