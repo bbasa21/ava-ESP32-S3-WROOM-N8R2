@@ -107,24 +107,57 @@ jobs:
           test -s release/manifest.sig
           openssl dgst -sha256 -verify "$public_file" -signature "$signature_der" release/manifest.json
 
-      - name: Create staging GitHub release
-        uses: softprops/action-gh-release@v2
+      - name: Create staging GitHub release (direct REST API diagnostic)
+        uses: actions/github-script@v7
         with:
-          tag_name: ota-v3-test-${{ steps.metadata.outputs.build_number }}
-          target_commitish: ${{ github.sha }}
-          name: "AVA OTA V3 TEST Build #${{ steps.metadata.outputs.build_number }}"
-          prerelease: true
-          generate_release_notes: false
-          files: |
-            release/ava-firmware.bin
-            release/manifest.json
-            release/manifest.sig
-            release/sha256.txt
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require("fs");
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = "ota-v3-test-${{ steps.metadata.outputs.build_number }}";
+
+            core.info(`Creating staging release for ${tag} at ${context.sha}`);
+            const created = await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              target_commitish: context.sha,
+              name: "AVA OTA V3 TEST Build #${{ steps.metadata.outputs.build_number }}",
+              prerelease: true,
+              draft: false,
+              generate_release_notes: false
+            });
+
+            core.info(`Release created: id=${created.data.id}, url=${created.data.html_url}`);
+
+            for (const file of [
+              "release/ava-firmware.bin",
+              "release/manifest.json",
+              "release/manifest.sig",
+              "release/sha256.txt"
+            ]) {
+              const data = fs.readFileSync(file);
+              core.info(`Uploading ${file} (${data.length} bytes)`);
+              await github.rest.repos.uploadReleaseAsset({
+                owner,
+                repo,
+                release_id: created.data.id,
+                name: file.split("/").pop(),
+                data,
+                headers: {
+                  "content-type": "application/octet-stream",
+                  "content-length": data.length
+                }
+              });
+            }
+
+            core.info("All staging release assets uploaded successfully.");
 
       - name: Publish staging manifest to hardening branch only
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
             const fs = require("fs");
             const branch = "work/ota-v3-hardening";
