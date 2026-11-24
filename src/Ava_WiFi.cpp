@@ -225,6 +225,8 @@ static void avaPrintWiFiInfo()
 
 void avaWiFiBegin()
 {
+    // Initialize the shared network mutex before Wi-Fi and OTA tasks use it.
+    avaNetworkLockBegin();
     Serial.println();
 
     Serial.println(
