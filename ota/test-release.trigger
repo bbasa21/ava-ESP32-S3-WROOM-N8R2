@@ -1,3 +1,4 @@
-Trigger a fresh AVA OTA V3 staging release from work/ota-v3-hardening.
+Trigger the isolated AVA OTA V3 hardening staging release.
 
-The release workflow builds the exact triggering commit, signs its manifest, and publishes the matching manifest and signature back to this branch.
+Requested source branch: work/ota-v3-hardening
+The release must be built from the exact triggering commit, validated, signed with AVA_OTA_SIGNING_PRIVATE_KEY, and published with its matching manifest and signature.
