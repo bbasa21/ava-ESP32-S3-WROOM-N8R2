@@ -18,6 +18,11 @@ static SemaphoreHandle_t avaGetNetworkMutex()
     return avaNetworkMutex;
 }
 
+void avaNetworkLockBegin()
+{
+    (void)avaGetNetworkMutex();
+}
+
 bool avaNetworkLockAcquire(TickType_t timeoutTicks)
 {
     SemaphoreHandle_t mutex = avaGetNetworkMutex();
