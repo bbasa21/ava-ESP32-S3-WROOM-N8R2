@@ -8,6 +8,7 @@
 // Serializes HTTPS/TLS users such as Weather and OTA.
 // ==================================================
 
+void avaNetworkLockBegin();
 bool avaNetworkLockAcquire(TickType_t timeoutTicks);
 void avaNetworkLockRelease();
 
