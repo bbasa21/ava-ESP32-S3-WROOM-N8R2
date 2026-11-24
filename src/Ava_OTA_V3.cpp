@@ -26,9 +26,9 @@ extern "C" const uint8_t x509_crt_bundle[];
 namespace {
 #if defined(AVA_OTA_V3_TEST_CHANNEL)
 constexpr char MANIFEST_URL[] =
-    "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/feature/ota-v3/ota/v3-test-manifest.json";
+    "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/work/ota-v3-hardening/ota/v3-test-manifest.json";
 constexpr char SIGNATURE_URL[] =
-    "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/feature/ota-v3/ota/v3-test-manifest.sig";
+    "https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/work/ota-v3-hardening/ota/v3-test-manifest.sig";
 constexpr char RELEASE_TAG_PREFIX[] = "ota-v3-test-";
 #else
 constexpr char MANIFEST_URL[] =
@@ -334,16 +334,29 @@ void performInstall() {
     http.setReuse(false);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     if (!http.begin(client, manifest.firmwareUrl)) {
+        char tlsError[160] = {};
+        client.lastError(tlsError, sizeof(tlsError));
+        Serial.printf("[OTA3][HTTP] Firmware begin FAILED; client=%s\n", tlsError);
         fail(AVA_OTA_V3_ERR_IMAGE_HTTP, "FIRMWARE REQUEST FAILED");
         return;
     }
+    http.addHeader("Cache-Control", "no-cache");
 
     Serial.println("[OTA3][DIAG] Firmware HTTP GET starting.");
     const int code = http.GET();
-    Serial.printf("[OTA3][DIAG] Firmware HTTP GET finished: code=%d size=%d\n",
-        code, http.getSize());
     const int contentLength = http.getSize();
+    Serial.printf("[OTA3][DIAG] Firmware HTTP GET finished: code=%d (%s) size=%d\n",
+        code, HTTPClient::errorToString(code).c_str(), contentLength);
     if (code != HTTP_CODE_OK) {
+        char tlsError[160] = {};
+        client.lastError(tlsError, sizeof(tlsError));
+        if (tlsError[0] != '\0') {
+            Serial.printf("[OTA3][HTTP] Firmware client detail: %s\n", tlsError);
+        }
+        const String redirect = http.getLocation();
+        if (redirect.length()) {
+            Serial.printf("[OTA3][HTTP] Firmware redirect: %s\n", redirect.c_str());
+        }
         http.end();
         fail(AVA_OTA_V3_ERR_IMAGE_HTTP, "FIRMWARE HTTP ERROR");
         return;
