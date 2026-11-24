@@ -1,11 +1,11 @@
 name: AVA OTA V3 Test Release
 
 # Explicit staging trigger only. Uses the existing production signing key
-# and matching public trust anchor; publishes only to feature/ota-v3.
+# and matching public trust anchor; publishes only to work/ota-v3-hardening.
 on:
   push:
     branches:
-      - feature/ota-v3
+      - work/ota-v3-hardening
     paths:
       - "ota/test-release.trigger"
 
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: feature/ota-v3
+          ref: ${{ github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -127,7 +127,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require("fs");
-            const branch = "feature/ota-v3";
+            const branch = "work/ota-v3-hardening";
 
             async function publish(filePath, fileContent, message) {
               let sha;
