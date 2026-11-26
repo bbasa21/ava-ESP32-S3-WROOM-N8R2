@@ -1,0 +1,50 @@
+name: AVA OTA V3 Validator Build
+
+on:
+  push:
+    branches:
+      - work/ota-v3-hardening
+    paths:
+      - "src/Ava_OTA_V3_Manifest.cpp"
+      - "include/Ava_OTA_V3*.h"
+      - "test/test_ota_v3_validator/**"
+      - "platformio.ini"
+      - ".github/workflows/ota-v3-validator.yml"
+  pull_request:
+    branches:
+      - work/ota-v3-hardening
+    paths:
+      - "src/Ava_OTA_V3_Manifest.cpp"
+      - "include/Ava_OTA_V3*.h"
+      - "test/test_ota_v3_validator/**"
+      - "platformio.ini"
+      - ".github/workflows/ota-v3-validator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ava-ota-v3-validator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validator-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: python -m pip install --disable-pip-version-check platformio
+
+      - name: Discover validator tests
+        run: pio test -e ava_ota_v3_validator_test --list-tests
+
+      - name: Compile validator test firmware only
+        run: pio test -e ava_ota_v3_validator_test --without-uploading --without-testing
