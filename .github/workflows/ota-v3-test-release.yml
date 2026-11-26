@@ -1,7 +1,6 @@
-name: AVA OTA V3 Test Release
+name: AVA OTA V2 Test Release
 
-# Explicit staging trigger only. Uses the existing production signing key
-# and matching public trust anchor; publishes only to work/ota-v3-hardening.
+# Explicit unsigned staging trigger. Publishes only to work/ota-v3-hardening.
 on:
   push:
     branches:
@@ -13,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ava-ota-v3-staging-${{ github.ref }}
+  group: ava-ota-v2-staging-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -51,61 +50,38 @@ jobs:
           echo "build_number=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
 
       - name: Build staging-channel firmware
-        run: pio run -e ava_ota_v3_test
+        run: pio run -e ava_ota_v2_test
 
       - name: Validate ESP firmware image
         shell: bash
         run: |
           set -euo pipefail
-          FIRMWARE=".pio/build/ava_ota_v3_test/firmware.bin"
+          FIRMWARE=".pio/build/ava_ota_v2_test/firmware.bin"
           test -s "$FIRMWARE"
           python -m esptool image_info "$FIRMWARE"
 
-      - name: Prepare signed staging release files
+      - name: Prepare unsigned staging release files
         shell: bash
         env:
           BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
         run: |
           set -euo pipefail
-          FIRMWARE=".pio/build/ava_ota_v3_test/firmware.bin"
+          FIRMWARE=".pio/build/ava_ota_v2_test/firmware.bin"
           mkdir -p release
           cp "$FIRMWARE" release/ava-firmware.bin
           sha256sum release/ava-firmware.bin | awk '{print $1}' > release/sha256.txt
           FIRMWARE_SIZE=$(stat -c%s release/ava-firmware.bin)
           cat > release/manifest.json <<EOF
           {
-            "schema": 3,
+            "schema": 2,
             "build": ${BUILD_NUMBER},
             "version": "0.0.0",
             "commit": "${GITHUB_SHA}",
-            "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/ota-v3-test-${BUILD_NUMBER}/ava-firmware.bin",
+            "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/ota-v2-test-${BUILD_NUMBER}/ava-firmware.bin",
             "size": ${FIRMWARE_SIZE},
             "sha256": "$(cat release/sha256.txt)"
           }
           EOF
-
-      - name: Sign staging manifest with the existing OTA key (ECDSA P-256 / SHA-256)
-        shell: bash
-        env:
-          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.AVA_OTA_SIGNING_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          test -n "$OTA_SIGNING_PRIVATE_KEY" || {
-            echo "Missing repository secret AVA_OTA_SIGNING_PRIVATE_KEY." >&2
-            exit 1
-          }
-          key_file="$RUNNER_TEMP/ava-ota-staging-key.pem"
-          public_file="$RUNNER_TEMP/ava-ota-staging-public.pem"
-          signature_der="$RUNNER_TEMP/ava-ota-staging-manifest.sig.der"
-          trap 'rm -f "$key_file" "$public_file" "$signature_der"' EXIT
-          printf '%s\n' "$OTA_SIGNING_PRIVATE_KEY" > "$key_file"
-          chmod 600 "$key_file"
-          openssl pkey -in "$key_file" -pubout -out "$public_file"
-          python tools/verify_ota_v3_public_key.py "$public_file" include/Ava_OTA_V3_TestPublicKey.h AVA_OTA_V3_TEST_PUBLIC_KEY_CONFIGURED
-          openssl dgst -sha256 -sign "$key_file" -out "$signature_der" release/manifest.json
-          base64 -w0 "$signature_der" > release/manifest.sig
-          test -s release/manifest.sig
-          openssl dgst -sha256 -verify "$public_file" -signature "$signature_der" release/manifest.json
 
       - name: Create staging GitHub release (direct REST API diagnostic)
         uses: actions/github-script@v7
@@ -115,7 +91,7 @@ jobs:
             const fs = require("fs");
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const tag = "ota-v3-test-${{ steps.metadata.outputs.build_number }}";
+            const tag = "ota-v2-test-${{ steps.metadata.outputs.build_number }}";
 
             core.info(`Creating staging release for ${tag} at ${context.sha}`);
             const created = await github.rest.repos.createRelease({
@@ -123,7 +99,7 @@ jobs:
               repo,
               tag_name: tag,
               target_commitish: context.sha,
-              name: "AVA OTA V3 TEST Build #${{ steps.metadata.outputs.build_number }}",
+              name: "AVA OTA V2 TEST Build #${{ steps.metadata.outputs.build_number }}",
               prerelease: true,
               draft: false,
               generate_release_notes: false
@@ -134,7 +110,7 @@ jobs:
             for (const file of [
               "release/ava-firmware.bin",
               "release/manifest.json",
-              "release/manifest.sig",
+
               "release/sha256.txt"
             ]) {
               const data = fs.readFileSync(file);
@@ -190,12 +166,7 @@ jobs:
             }
 
             await publish(
-              "ota/v3-test-manifest.sig",
-              fs.readFileSync("release/manifest.sig", "utf8"),
-              "Publish OTA V3 staging signature"
-            );
-            await publish(
-              "ota/v3-test-manifest.json",
+              "ota/v2-test-manifest.json",
               fs.readFileSync("release/manifest.json", "utf8"),
-              "Publish OTA V3 staging manifest"
+              "Publish OTA V2 staging manifest"
             );

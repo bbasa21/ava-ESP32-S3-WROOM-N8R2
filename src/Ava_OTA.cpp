@@ -31,7 +31,11 @@ public:
 #include "Ava_OTA_Display.h"
 
 namespace {
+#ifdef AVA_OTA_V2_TEST_CHANNEL
+constexpr char MANIFEST[]="https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/work/ota-v3-hardening/ota/v2-test-manifest.json";
+#else
 constexpr char MANIFEST[]="https://raw.githubusercontent.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/main/ota/manifest.json";
+#endif
 constexpr size_t CHUNK=4096;
 // HTTPS/TLS firmware downloads need a larger dedicated task stack on ESP32-S3.
 constexpr uint32_t OTA_INSTALL_TASK_STACK=32768;
@@ -43,6 +47,7 @@ bool autoCheckClockStarted=false;
 constexpr uint32_t AUTO_CHECK_INTERVAL_MS=300000UL;
 bool ready=false;
 uint32_t newBuild=0;
+uint32_t expectedSize=0;
 String imageUrl, expected, remoteVersion, remoteCommit;
 
 bool getString(const String& j,const char* key,String& out){
@@ -53,10 +58,40 @@ bool getString(const String& j,const char* key,String& out){
  int e=j.indexOf('"',p);if(e<0)return false;out=j.substring(p,e);return true;
 }
 bool getBuild(const String& j,uint32_t& out){
- int p=j.indexOf("\"build\"");if(p<0)return false;p=j.indexOf(':',p+7);if(p<0)return false;++p;
+ int p=j.indexOf("\"build\"");
+ if(p<0)return false;
+ p=j.indexOf(':',p+7);
+ if(p<0)return false;
+ ++p;
  while(p<(int)j.length()&&isspace((unsigned char)j[p]))++p;
  if(p>=(int)j.length()||!isdigit((unsigned char)j[p]))return false;
- uint64_t n=0;while(p<(int)j.length()&&isdigit((unsigned char)j[p])){n=n*10+j[p++]-'0';if(n>UINT32_MAX)return false;}out=(uint32_t)n;return true;
+ uint32_t n=0;
+ while(p<(int)j.length()&&isdigit((unsigned char)j[p])){
+  uint32_t digit=(uint32_t)(j[p]-'0');
+  if(n>(UINT32_MAX-digit)/10U)return false;
+  n=n*10U+digit;
+  ++p;
+ }
+ out=n;
+ return true;
+}
+bool getSize(const String& j,uint32_t& out){
+ int p=j.indexOf("\"size\"");
+ if(p<0)return false;
+ p=j.indexOf(':',p+6);
+ if(p<0)return false;
+ ++p;
+ while(p<(int)j.length()&&isspace((unsigned char)j[p]))++p;
+ if(p>=(int)j.length()||!isdigit((unsigned char)j[p]))return false;
+ uint32_t n=0;
+ while(p<(int)j.length()&&isdigit((unsigned char)j[p])){
+  uint32_t digit=(uint32_t)(j[p]-'0');
+  if(n>(UINT32_MAX-digit)/10U)return false;
+  n=n*10U+digit;
+  ++p;
+ }
+ out=n;
+ return out>0;
 }
 bool validHex(const String& s,size_t n){if(s.length()!=n)return false;for(char c:s)if(!isxdigit((unsigned char)c))return false;return true;}
 bool validVersion(const String& s){if(s.length()<5||s.length()>32)return false;int dots=0;bool digit=false;for(char c:s){if(c=='.'){if(!digit)return false;++dots;digit=false;}else if(isdigit((unsigned char)c))digit=true;else return false;}return dots==2&&digit;}
@@ -67,35 +102,40 @@ bool partitionHash(const esp_partition_t* p,size_t n,String& out){
  mbedtls_sha256_finish(&c,d);mbedtls_sha256_free(&c);out=hexHash(d);return true;
 }
 void fail(const char* why){Serial.printf("[OTA2] ERROR: %s\n",why);avaOTAUISetStatus(AVA_OTA_UI_ERROR);delay(1500);avaOTAUIEnd();}
-void installer(void*){
+static void installerWork(){
  avaOTAUIBegin();avaOTAUISetStatus(AVA_OTA_UI_UPDATING);
  AvaNetworkLockGuard lock(pdMS_TO_TICKS(10000));
- if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED||!ready){fail("Network unavailable or run OTA CHECK first.");busy=false;vTaskDelete(nullptr);return;}
+ if(!lock.isLocked()||WiFi.status()!=WL_CONNECTED||!ready){fail("Network unavailable or run OTA CHECK first.");return;}
  AvaSecureClient client;
  HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(20000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
- if(!http.begin(client,imageUrl)){fail("Firmware request could not start.");busy=false;vTaskDelete(nullptr);return;}
- int code=http.GET(),length=http.getSize();if(code!=HTTP_CODE_OK||length<=0){http.end();fail("Invalid firmware HTTP response/length.");busy=false;vTaskDelete(nullptr);return;}
+ if(!http.begin(client,imageUrl)){fail("Firmware request could not start.");return;}
+ int code=http.GET(),length=http.getSize();if(code!=HTTP_CODE_OK||length<=0||(uint32_t)length!=expectedSize){http.end();fail("Invalid firmware HTTP response/length.");return;}
  const esp_partition_t* target=esp_ota_get_next_update_partition(nullptr);
- if(!target||(size_t)length>target->size){http.end();fail("OTA partition unavailable or image too large.");busy=false;vTaskDelete(nullptr);return;}
- esp_ota_handle_t handle=0;esp_err_t err=esp_ota_begin(target,(size_t)length,&handle);
- if(err!=ESP_OK){http.end();fail("esp_ota_begin failed.");busy=false;vTaskDelete(nullptr);return;}
+ if(!target||(size_t)length>target->size){http.end();fail("OTA partition unavailable or image too large.");return;}
+ esp_ota_handle_t handle=0;esp_err_t err=esp_ota_begin(target,(size_t)expectedSize,&handle);
+ if(err!=ESP_OK){http.end();fail("esp_ota_begin failed.");return;}
  WiFiClient* stream=http.getStreamPtr();static uint8_t b[CHUNK];uint8_t digest[32];size_t done=0;uint32_t last=millis();bool ok=stream!=nullptr;
  mbedtls_sha256_context sha;mbedtls_sha256_init(&sha);mbedtls_sha256_starts(&sha,0);
- while(ok&&done<(size_t)length){
+ while(ok&&done<(size_t)expectedSize){
   size_t a=stream->available();if(!a){if(!stream->connected()||millis()-last>20000){ok=false;break;}vTaskDelay(1);continue;}
-  size_t want=min(sizeof(b),(size_t)length-done);want=min(want,a);int got=stream->read(b,want);if(got<=0)continue;last=millis();
-  if(esp_ota_write(handle,b,(size_t)got)!=ESP_OK){ok=false;break;}mbedtls_sha256_update(&sha,b,(size_t)got);done+=(size_t)got;avaOTAUISetProgress((int)(done*100ULL/(size_t)length));
+  size_t want=min(sizeof(b),(size_t)expectedSize-done);want=min(want,a);int got=stream->read(b,want);if(got<=0)continue;last=millis();
+  if(esp_ota_write(handle,b,(size_t)got)!=ESP_OK){ok=false;break;}mbedtls_sha256_update(&sha,b,(size_t)got);done+=(size_t)got;avaOTAUISetProgress((int)(done*100ULL/(size_t)expectedSize));
   // Let IDLE0 run while the network stream continuously has data; otherwise
   // this pinned installer task can starve the core-0 idle task and trip TWDT.
   vTaskDelay(1);
  }
  mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);http.end();
- if(!ok||done!=(size_t)length||hexHash(digest)!=expected){esp_ota_abort(handle);fail("Download incomplete or SHA-256 mismatch.");busy=false;vTaskDelete(nullptr);return;}
+ if(!ok||done!=(size_t)expectedSize||hexHash(digest)!=expected){esp_ota_abort(handle);fail("Download incomplete or SHA-256 mismatch.");return;}
  avaOTAUISetStatus(AVA_OTA_UI_VERIFYING);err=esp_ota_end(handle);
- if(err!=ESP_OK){fail("ESP image validation failed.");busy=false;vTaskDelete(nullptr);return;}
- String flash;if(!partitionHash(target,done,flash)||flash!=expected){fail("Flash readback verification failed.");busy=false;vTaskDelete(nullptr);return;}
- if(esp_ota_set_boot_partition(target)!=ESP_OK){fail("Could not activate verified image.");busy=false;vTaskDelete(nullptr);return;}
- ready=false;avaOTAUISetProgress(100);avaOTAUISetStatus(AVA_OTA_UI_RESTARTING);Serial.printf("[OTA2] Build %lu verified. Restarting.\n",(unsigned long)newBuild);delay(1200);ESP.restart();vTaskDelete(nullptr);
+ if(err!=ESP_OK){fail("ESP image validation failed.");return;}
+ String flash;if(!partitionHash(target,done,flash)||flash!=expected){fail("Flash readback verification failed.");return;}
+ if(esp_ota_set_boot_partition(target)!=ESP_OK){fail("Could not activate verified image.");return;}
+ ready=false;avaOTAUISetProgress(100);avaOTAUISetStatus(AVA_OTA_UI_RESTARTING);Serial.printf("[OTA2] Build %lu verified. Restarting.\n",(unsigned long)newBuild);delay(1200);ESP.restart();return;
+}
+static void installer(void*) {
+    installerWork();
+    busy = false;
+    vTaskDelete(nullptr);
 }
 }
 
@@ -104,7 +144,29 @@ static bool avaOTACheckForUpdateImpl(){
  ready=false;AvaSecureClient client;HTTPClient http;http.setConnectTimeout(12000);http.setTimeout(15000);http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
  if(!http.begin(client,MANIFEST))return false;int code=http.GET();if(code!=HTTP_CODE_OK){http.end();Serial.printf("[OTA2] Manifest HTTP %d\n",code);return false;}
  int manifestLength=http.getSize();if(manifestLength<=0||manifestLength>4096){http.end();Serial.println("[OTA2] Manifest size rejected.");return false;}String json=http.getString();http.end();if(json.length()!=(size_t)manifestLength){Serial.println("[OTA2] Manifest truncated.");return false;}
- if(!getBuild(json,newBuild)||!getString(json,"version",remoteVersion)||!validVersion(remoteVersion)||!getString(json,"commit",remoteCommit)||!validHex(remoteCommit,40)||!getString(json,"firmware_url",imageUrl)||!getString(json,"sha256",expected)||!validHex(expected,64)){Serial.println("[OTA2] Invalid manifest/schema.");return false;}String allowed="https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-"+String(newBuild)+"/ava-firmware.bin";if(imageUrl!=allowed){Serial.println("[OTA2] Firmware URL rejected.");return false;}
+ if(!getBuild(json,newBuild)||
+    !getSize(json,expectedSize)||
+    !getString(json,"version",remoteVersion)||
+    !validVersion(remoteVersion)||
+    !getString(json,"commit",remoteCommit)||
+    !validHex(remoteCommit,40)||
+    !getString(json,"firmware_url",imageUrl)||
+    !getString(json,"sha256",expected)||
+    !validHex(expected,64)) {
+  Serial.println("[OTA2] Invalid manifest/schema.");
+  return false;
+ }
+
+#ifdef AVA_OTA_V2_TEST_CHANNEL
+ String allowed="https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/ota-v2-test-"+String(newBuild)+"/ava-firmware.bin";
+#else
+ String allowed="https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/firmware-"+String(newBuild)+"/ava-firmware.bin";
+#endif
+
+ if(imageUrl!=allowed) {
+  Serial.println("[OTA2] Firmware URL rejected.");
+  return false;
+ }
  expected.toLowerCase();if(newBuild<=AVA_BUILD_NUMBER){Serial.printf("[OTA2] Up to date: local=%u remote=%lu\n",(unsigned)AVA_BUILD_NUMBER,(unsigned long)newBuild);return true;}
  ready=true;Serial.printf("[OTA2] Update available: build %lu. Run OTA INSTALL.\n",(unsigned long)newBuild);return true;
 }
@@ -166,3 +228,6 @@ bool avaOTAStartInstall(){
  return true;
 }
 bool avaOTAIsRunning(){return busy;}
+bool avaOTAIsBusy(){return busy||checking||autoCheckTaskPending;}
+bool avaOTAIsUpdateAvailable(){return ready;}
+uint32_t avaOTAGetAvailableBuild(){return ready?newBuild:0;}

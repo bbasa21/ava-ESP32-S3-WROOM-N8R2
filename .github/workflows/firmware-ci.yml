@@ -47,5 +47,5 @@ jobs:
         run: pip install platformio
       - name: Build production OTA channel
         run: pio run -e ava
-      - name: Build isolated OTA V3 test channel
-        run: pio run -e ava_ota_v3_test
+      - name: Build isolated OTA V2 test channel
+        run: pio run -e ava_ota_v2_test

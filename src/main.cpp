@@ -37,9 +37,9 @@
 #include "Ava_QnA.h"
 #include "Ava_AI.h"
 #include "Ava_WiFi.h"
-#include "Ava_OTA_V3.h"
-#include "Ava_OTA_V3_Display.h"
-#include "Ava_OTA_V3_BootGuard.h"
+#include "Ava_OTA.h"
+#include "Ava_OTA_Display.h"
+#include "Ava_OTA_BootGuard.h"
 #include "Ava_Bluetooth.h"
 
 #include <esp_mac.h>
@@ -174,9 +174,8 @@ void setup() {
 
   AvaBluetooth::begin();
 
-  // OTA V3 uses one background worker. BootGuard starts after core services.
-  avaOTAV3Begin();
-  avaOTAV3BootGuardBegin();
+  // OTA2 installer and generic first-boot rollback guard.
+  avaOTABootGuardBegin();
 
   lastInteractionTime = millis();
 }
@@ -186,17 +185,13 @@ void loop() {
   AvaBluetooth::update();
   avaCommunicationUpdate();
 
-  // Queue automatic OTA checks before background Wi-Fi/Weather traffic.
-  avaOTAV3Tick();
+  // OTA2 automatic checks and first-boot rollback protection.
+  avaOTAAutoUpdateTick();
+  avaOTABootGuardTick();
   avaWiFiUpdate();
 
-  // One worker owns all OTA network and flash operations.
-  // The main loop only services BootGuard and renders an OLED snapshot.
-  const AvaOTAV3Status otaLoopStatus = avaOTAV3GetStatus();
-  const bool bootHealthCheck =
-      otaLoopStatus.state == AVA_OTA_V3_BOOT_VERIFYING;
-  if (avaOTAV3IsBusy() && !bootHealthCheck) {
-    avaOTAV3DisplayUpdate();
+  if (avaOTAIsBusy()) {
+    avaOTAUIUpdate();
     delay(20);
     return;
   }
@@ -211,7 +206,7 @@ void loop() {
   updateBehavior();
 
   avaOLEDUpdate();
-  avaOTAV3DisplayUpdate();
+  avaOTAUIUpdate();
   avaBlinkAssistantUpdate();
 
   delay(20);
@@ -321,8 +316,8 @@ void processCommand(String cmd) {
   // overlapping NVS writes, AI requests, or other network traffic with flash I/O.
   String normalizedForOTA = cmd;
   normalizedForOTA.toLowerCase();
-  if (avaOTAV3IsBusy() && normalizedForOTA != "ota status") {
-    Serial.println("[OTA3] Command rejected while update/boot validation is active. Use OTA STATUS.");
+  if (avaOTAIsBusy() && normalizedForOTA != "ota status") {
+    Serial.println("[OTA2] Command rejected while OTA is active. Use OTA STATUS.");
     currentState = STATE_IDLE;
     return;
   }
@@ -381,30 +376,36 @@ void processCommand(String cmd) {
 
   cmd.toLowerCase();
   if (cmd.equalsIgnoreCase("ota check")) {
-    const bool queued = avaOTAV3RequestCheck();
-    Serial.println(queued ? "[OTA3] CHECK QUEUED" : "[OTA3] CHECK REJECTED");
+    const bool checked = avaOTACheckForUpdate();
+
+    if (!checked) {
+      Serial.println("[OTA2] CHECK FAILED");
+    } else if (avaOTAIsUpdateAvailable()) {
+      Serial.printf(
+        "[OTA2] UPDATE AVAILABLE: build %lu. Run OTA INSTALL.\n",
+        static_cast<unsigned long>(avaOTAGetAvailableBuild())
+      );
+    } else {
+      Serial.println("[OTA2] UP TO DATE");
+    }
+
     currentState = STATE_IDLE;
     return;
   }
   if (cmd.equalsIgnoreCase("ota install")) {
-    const bool queued = avaOTAV3RequestInstall();
-    Serial.println(queued ? "[OTA3] INSTALL QUEUED" : "[OTA3] INSTALL REJECTED");
+    const bool started = avaOTAStartInstall();
+    Serial.println(started ? "[OTA2] INSTALL STARTED" : "[OTA2] INSTALL REJECTED");
     currentState = STATE_IDLE;
     return;
   }
   if (cmd.equalsIgnoreCase("ota status")) {
-    const AvaOTAV3Status status = avaOTAV3GetStatus();
     Serial.printf(
-      "[OTA3] state=%s error=%s progress=%u%% build=%lu remote=%lu bytes=%lu/%lu detail=%s\n",
-      avaOTAV3StateName(status.state),
-      avaOTAV3ErrorName(status.error),
-      status.progress,
-      static_cast<unsigned long>(status.currentBuild),
-      static_cast<unsigned long>(status.availableBuild),
-      static_cast<unsigned long>(status.bytesTransferred),
-      static_cast<unsigned long>(status.totalBytes),
-      status.detail
+      "[OTA2] busy=%s update=%s build=%lu\n",
+      avaOTAIsBusy() ? "YES" : "NO",
+      avaOTAIsUpdateAvailable() ? "YES" : "NO",
+      static_cast<unsigned long>(avaOTAGetAvailableBuild())
     );
+
     currentState = STATE_IDLE;
     return;
   }

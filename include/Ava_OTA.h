@@ -3,4 +3,7 @@
 bool avaOTACheckForUpdate();
 bool avaOTAStartInstall();
 bool avaOTAIsRunning();
+bool avaOTAIsBusy();
+bool avaOTAIsUpdateAvailable();
+uint32_t avaOTAGetAvailableBuild();
 void avaOTAAutoUpdateTick();

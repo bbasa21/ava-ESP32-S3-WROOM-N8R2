@@ -1,6 +1,17 @@
-Trigger the isolated AVA OTA V3 hardening staging release.
+AVA OTA V2 staging release trigger
 
-Requested source branch: work/ota-v3-hardening
-The release must be built from the exact triggering commit, validated, signed with AVA_OTA_SIGNING_PRIVATE_KEY, and published with its matching manifest and signature.
+Source branch: work/ota-v3-hardening
+Build environment: ava_ota_v2_test
 
-Diagnostic run: direct GitHub REST release creation using the built-in github.token.
+Purpose:
+Build and publish an unsigned OTA V2 staging release.
+
+The release must include:
+- ava-firmware.bin
+- v2-test-manifest.json
+- SHA256 integrity information
+
+OTA V2 uses HTTPS certificate validation and SHA256 integrity verification.
+No ECDSA signature or private signing key is required.
+
+This trigger is for staging tests only. Production main branch must remain unchanged.

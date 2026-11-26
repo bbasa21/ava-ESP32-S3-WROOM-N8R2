@@ -9,7 +9,7 @@
 #include "Ava_Config.h"
 #include "Ava_OLED.h"
 #include "Ava_NetworkLock.h"
-#include "Ava_OTA_V3.h"
+#include "Ava_OTA.h"
 
 
 // ==================================================
@@ -1997,7 +1997,7 @@ void avaWiFiUpdate()
 
         const unsigned long networkNow = millis();
         if (
-            !avaOTAV3IsBusy() &&
+            !avaOTAIsBusy() &&
             !internetTestDone &&
             networkNow - wifiConnectedSince >= INTERNET_TEST_DELAY &&
             (internetTestLastAttempt == 0 ||
@@ -2022,7 +2022,7 @@ void avaWiFiUpdate()
         // ==================================================
 
         if (
-            !avaOTAV3IsBusy() &&
+            !avaOTAIsBusy() &&
             internetTestDone &&
             internetAvailable
         )
