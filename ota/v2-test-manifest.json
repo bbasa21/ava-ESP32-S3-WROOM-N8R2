@@ -1,0 +1,9 @@
+{
+  "schema": 2,
+  "build": 20008,
+  "version": "0.0.0",
+  "commit": "510e9bb1ef077b1b8effe88c59584c366499fad6",
+  "firmware_url": "https://github.com/bbasa21/ava-ESP32-S3-WROOM-N8R2/releases/download/ota-v2-test-20008/ava-firmware.bin",
+  "size": 1468640,
+  "sha256": "aed5d0ea08ce9f6af119b76601c0835d4567fbc16a15018f4a37a7e0e0a0255e"
+}
