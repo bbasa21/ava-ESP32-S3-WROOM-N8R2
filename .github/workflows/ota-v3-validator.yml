@@ -8,6 +8,7 @@ on:
       - "src/Ava_OTA_V3_Manifest.cpp"
       - "include/Ava_OTA_V3*.h"
       - "test/test_ota_v3_validator/**"
+      - "test/native_support/**"
       - "platformio.ini"
       - ".github/workflows/ota-v3-validator.yml"
   pull_request:
@@ -17,6 +18,7 @@ on:
       - "src/Ava_OTA_V3_Manifest.cpp"
       - "include/Ava_OTA_V3*.h"
       - "test/test_ota_v3_validator/**"
+      - "test/native_support/**"
       - "platformio.ini"
       - ".github/workflows/ota-v3-validator.yml"
   workflow_dispatch:
@@ -43,8 +45,25 @@ jobs:
       - name: Install PlatformIO
         run: python -m pip install --disable-pip-version-check platformio
 
-      - name: Discover validator tests
+      - name: Discover embedded validator tests
         run: pio test -e ava_ota_v3_validator_test --list-tests
 
-      - name: Compile validator test firmware only
+      - name: Compile embedded validator test firmware only
         run: pio test -e ava_ota_v3_validator_test --without-uploading --without-testing
+
+      - name: Install host crypto development library
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends g++ libmbedtls-dev
+
+      - name: Compile and execute validator tests on host
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -DAVA_OTA_V3_TEST_CHANNEL \
+            -Itest/native_support -Iinclude \
+            src/Ava_OTA_V3_Manifest.cpp \
+            test/test_ota_v3_validator/test_main.cpp \
+            test/native_support/main.cpp \
+            -lmbedcrypto -lmbedx509 -lmbedtls \
+            -o /tmp/ava_ota_v3_validator_tests
+          /tmp/ava_ota_v3_validator_tests
